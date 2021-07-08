@@ -9,6 +9,7 @@ date_d = "vie. 1 ago."
 
 
 def get_wp_shipping_time(ebay_shipping_time):
+    print(ebay_shipping_time)
 
     #split ebay dates "vie. 9 jul. y el lun. 12 jul."
     ebay_date = ebay_shipping_time.split('.')
@@ -19,9 +20,6 @@ def get_wp_shipping_time(ebay_shipping_time):
     current_month_name = calendar.month_name[current_month].lower()
     current_month_letters = current_month_name[0:3]
 
-    
-
-    
     # it can be one date(jul 12) or a range between 2 days (jul. 12 and jul. 16)
     #if it's a range of 2 dates:
     if len(ebay_date) == 5: 
@@ -38,7 +36,6 @@ def get_wp_shipping_time(ebay_shipping_time):
         #first letters from current month name to compare with ebay's
         # if it's the same month: jul == jul        
         if current_month_letters == ebay_first_month:
-            print("detecte same month")
             shipping_days = int(ebay_first_day) - int(current_day)
 
             if shipping_days == 1:
@@ -53,7 +50,6 @@ def get_wp_shipping_time(ebay_shipping_time):
 
         #if it's a different month, like jul-aug
         elif current_month_letters != ebay_first_month:
-            print("detecte new month")
             #sample date: today's 27 jul, shipping arrival on 2 aug = 6 days
             # (from today's number to the end month) + ebay 1º day
             # (31-27)+2
@@ -61,7 +57,6 @@ def get_wp_shipping_time(ebay_shipping_time):
             current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
             daysto_end_month = current_month_total_days - now.month
             wp_shipping_days = daysto_end_month + int(ebay_first_day)
-
             return wp_shipping_days
    
     elif len(ebay_date) == 3: #there's only one date, like in "vie. 12 jul."
@@ -71,9 +66,7 @@ def get_wp_shipping_time(ebay_shipping_time):
 
         #if it's the same month
         if current_month_letters == ebay_month_name:
-            
             shipping_days = int(ebay_day_number) - int(current_day)
-
             if shipping_days == 1:
                 wp_shipping_text = "Envío en 24h"
             elif shipping_days == 2:
@@ -104,5 +97,8 @@ def get_wp_shipping_time(ebay_shipping_time):
             
 
 
-get_wp_shipping_time(date_d)
+print(get_wp_shipping_time(date_a))
+print(get_wp_shipping_time(date_b))
+print(get_wp_shipping_time(date_c))
+print(get_wp_shipping_time(date_d))
 #get_wp_shipping_time(date_c)
