@@ -42,7 +42,12 @@ def apply_wp_price(ebay_total_price):
     final_price_decorated = final_price + terminator
     #delete unwanted decimals
     final_price_decorated = round(final_price_decorated,2)
+    # instead of 140, 139, instead of 75,74
+    if int(final_price_decorated) % 5 == 0: 
+        final_price_decorated = final_price_decorated -1
+
     print(ebay_total_price,'\t', final_price_decorated, '\t',"margin:",margin,'\t','benefit', benefit)
+
     return final_price_decorated
 
 def get_ebay_pictures(ebay_prod_id):
@@ -97,31 +102,31 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
 
         #this is the filter, only prods that meet the requierments can pass through
         if variable_prod != None: #avoid product if it's a variable prod
-            print("this item is variable",item['title'])
+            #print("this item is variable",item['title'])
             continue
         elif  seller_sold_number < 50: #if very little sells
-            print('not enough votes',item['title'])
+            #print('not enough votes',item['title'])
             continue
         elif 'PayPal' not in payment_methods:
-            print('not payment',item['title'])
+            #print('not payment',item['title'])
             continue
         elif 'Visa' not in payment_methods:
-            print('not payment',item['title'])
+            #print('not payment',item['title'])
             continue
         elif 'Para desguace' in prod_state: #if the prod is broken
-            print('broken item',item['title'])
+            #print('broken item',item['title'])
             continue
         elif '[]' not in sold_out_text : # if the product is NOT sold out it's an empty list
-            print('prod sold out',item['title'])
+            #print('prod sold out',item['title'])
             continue
         elif ebay_price == '':
-            print('no price',item['title'])
+            #print('no price',item['title'])
             continue
         elif ebay_shipping_price == '':
-            print('not shipping price',item['title'])
+            #print('not shipping price',item['title'])
             continue
         elif 'Solo recogida local' in area_served:
-            print('no shippiing service',item['title'])
+            #print('no shippiing service',item['title'])
             continue
 
 
@@ -154,7 +159,7 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
         ebay_total_price = ebay_price + ebay_shipping_price
         wp_price = apply_wp_price(ebay_total_price)
 
-        pictures = get_ebay_pictures(ebay_prod_id)
+        pictures = 'uncommment'#get_ebay_pictures(ebay_prod_id)
 
         #print("there are products with wanted characteristics!!")
         data_to_dump = [{'query':query,'title':title,
