@@ -1,4 +1,5 @@
 import json
+import requests
 from os import extsep
 import random
 from ebaysdk.finding import Connection
@@ -156,6 +157,20 @@ def get_wp_shipping_time(ebay_shipping_time):
                 return shipping_days
             return wp_shipping_text, shipping_days
 
+def get_EUR_GBP_exchange():
+
+    api_key = '5efad85ac008571f2d938413de17d8ab'
+    end_point = 'http://api.exchangeratesapi.io/v1/latest?access_key=5efad85ac008571f2d938413de17d8ab'#&base=GBP'
+    response = requests.get(end_point)
+    #print(response.status_code)
+    response_dict = response.json()
+    GBP_value = response_dict["rates"]['GBP']
+    print(GBP_value)
+    return GBP_value
+
+
+GBP_value = get_EUR_GBP_exchange()
+
 entry = []
 with open('scrapper_output.json',encoding='utf8') as json_file:
     scrapper_data = json.load(json_file)
@@ -173,7 +188,7 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
         ebay_shipping_price =  item['shipping_price']
         area_served =     item['served_area']
 
-        #variables need to filter:
+        #variables no need to filter:
         title =           item['title']
         price =           item['price']
         query =           item['query']
@@ -184,6 +199,9 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
         ebay_category =   item['category']
         ebay_prod_specs = item['prod_specs']
         ebay_prod_description = item['prod_description']
+        ebay_import_taxes = item['import_taxes']
+
+
 
         #this is the filter, only prods that meet the requierments can pass through
         if variable_prod != None: #avoid product if it's a variable prod
@@ -220,7 +238,7 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
         print(".-------------",ebay_price)
         #in the case of a price with comma like "1.102,95 EUR"
         if ('.') in ebay_price and (',') in ebay_price: 
-            print("detected!!!", ebay_price)
+            #print("detected!!!", ebay_price)
             ebay_price = ebay_price.split(',')[0]
             ebay_price = ebay_price.replace('.','')
             ebay_price = float(ebay_price)
@@ -249,8 +267,21 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
             pass
         
         ################################### this goes here
-        
+
+
         ebay_total_price = ebay_price + ebay_shipping_price
+        
+        if ebay_import_taxes: #GBP_value obtained with API function get_EUR_GBP_value()
+            ebay_import_taxes = ebay_import_taxes.replace('GBP','').replace(',','.')
+            EUR_value = float(ebay_import_taxes) * GBP_value
+            
+            ebay_total_price = ebay_price + EUR_value + ebay_shipping_price
+            
+            print('taxes_GBP=',ebay_import_taxes)
+            print('taxes EUR=',EUR_value)
+            print('shipping_price=',ebay_shipping_price)
+            print('ebay_total_price=', ebay_total_price)
+        
         wp_price = apply_wp_price(ebay_total_price)
 
         pictures = 'uncomment this fucntion'#get_ebay_pictures(ebay_prod_id)
@@ -264,7 +295,8 @@ with open('scrapper_output.json',encoding='utf8') as json_file:
         'ebay_prod_id':ebay_prod_id,'ebay_prod_url':ebay_prod_url,
         'ebay_category':ebay_category,'ebay_prod_specs':ebay_prod_specs,
         'ebay_prod_description':ebay_prod_description,'wp_price':wp_price,
-        'pictures':pictures,'wp_shipping_time':wp_shipping_time,
+        'pictures':pictures,'wp_shipping_time':wp_shipping_time, 
+        'ebay_import_taxes':ebay_import_taxes,
          }]
 
         entry.append(data_to_dump)
