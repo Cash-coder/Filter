@@ -5,6 +5,7 @@ import csv
 from os import extsep
 import random
 from re import T
+import traceback
 from ebaysdk.finding import Connection
 from ebaysdk.shopping import Connection as Shopping
 from bs4 import BeautifulSoup
@@ -128,9 +129,9 @@ EBAY_PROD_DESCRIPTION_COL = 28
 def apply_wp_price(ebay_total_price):
     print(ebay_total_price)
 
-    if int(ebay_total_price) > 1000:
+    if int(ebay_total_price) > 1001:
         margin = 0.03
-    elif int(ebay_total_price) in range(800,999):
+    elif int(ebay_total_price) in range(800,1000):
         margin = 0.035 # 3.5%  
     elif int(ebay_total_price) in range(600,800):
         margin = 0.04 # 4%  
@@ -400,8 +401,12 @@ def color_detector(ebay_title):
     italian_colors = ['nero',   'blu',   'marrone', 'grigio', 'verde',  'arancione', 'rosa',    'viola',    'rosso', 'bianco',   'giallo'   'oro',  'argento'] 
     german_colors  = ['schwarz', 'blau', 'braun',    'grau',  'grün',   'orange',    'rosa',     'lila',     'rot',   'weiß',    'gelb',     'gold', 'silber']
     french_colors  = [ 'noir',    'bleu', 'brun',   'gris',   'vert',   'orange',   'rose',      'pourpre', 'rouge', 'blanc',   'jaune',   '----',  'argent'] #mising golden in french because it's 'or', will make a lot of false postives
+
+    #some standalone colors
+    if 'grafito' in ebay_title:
+        return 'grafito'
+
     #spanish
-    n_colors = 0
     for color in spanish_colors:
         if color in ebay_title:
             detected_color = color
@@ -433,10 +438,10 @@ def color_detector(ebay_title):
 
 #get warranty searching for text match
 def detect_warranty(subtitle, description):
-
-    one_year  = ['garantía 1 año', '1 año garantía','garantía 12 meses', '12 meses garantía', '12 monate gewährleistung' , '12 monate herstellergarantie', '1 jahr gewährleistung' , '1 jahr herstellergarantie', '12 mesi garanzia', 'garanzia 12 mesi' , 'garanzia 1 anni']
+    #notice monate != monaten
+    one_year  = ['garantía 1 año', '1 año garantía','garantía 12 meses', '12 meses garantía', '12 monate gewährleistung', '12 monaten gewährleistung' ,'12 monate herstellergarantie', '1 jahr gewährleistung' , '1 jahr herstellergarantie', '12 mesi garanzia', 'garanzia 12 mesi' , 'garanzia 1 anni']
     half_year = ['6 meses garantía', 'garantía 6 meses', '6 monate gewährleistung' , '6 monate herstellergarantie', '6 mesi garanzia', 'garanzia 6 mesi']
-    two_years = ['24 meses garantía','garantía 24 meses' ,'24 monate gewährleistung' , '24 monate herstellergarantie', '2 jahr gewährleistung' , '2 jahr herstellergarantie', '24 mesi garanzia', 'garanzia 24 mesi' , 'garanzia 1 anni']
+    two_years = ['2 años de garantía','24 meses garantía','garantía 24 meses' ,'24 monate gewährleistung' , '24 monate herstellergarantie', '2 jahr gewährleistung' , '2 jahr herstellergarantie', '24 mesi garanzia', 'garanzia 24 mesi' , 'garanzia 1 anni']
 
     #check in subtitle
     try:
@@ -508,6 +513,7 @@ def get_ebay_vendor_notes(ebay_prod_specs):
         print('exception in get_ebay_vendor_notes',e)
         return 'this item does not have Vendor Notes at that location or don\t have any notes at all'
 
+
 def write_to_excel(data_to_dump, FILTER_OUTPUT):
 
     wb = load_workbook(FILTER_OUTPUT)
@@ -576,8 +582,14 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
 
     wb.save(OUTPUT_FILE)
 
-
-
+def get_textfrom_html(ebay_prod_description):
+    from bs4 import BeautifulSoup
+    try:
+        text = BeautifulSoup(str(ebay_prod_description), features="html.parser").get_text()
+        return text
+    except Exception as e:
+        print(f'in get_textfrom_html(): {e}')
+        traceback.print_exc()
 
 #make a copy in logs_folder
 copy_move_file(OUTPUT_FILE, LOGS_FOLDER)
@@ -635,16 +647,27 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
         ebay_prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
         ebay_prod_specs = item[EBAY_PROD_SPECS_NAME]
         subtitle = item[SUBTITLE_NAME]
+
+        if area_served == None: area_served='not result'
         
         
         #SAVING TIME TOTEST, UNCOMENT 
         # ebay_prod_specs= deepl_translate(ebay_prod_specs, target_language='ES')
+
+        #sometimes descriptio is short, only text and helpful. Other times is an iframe full of stuff. Ignore when full
+        if len(ebay_prod_description) > 1200:
+            ebay_prod_description = 'Too long'
+        else:
+            ebay_prod_description = get_textfrom_html(ebay_prod_description)
 
         warranty     = detect_warranty(ebay_subtitle, ebay_prod_description)
 
         ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
 
         detected_color = color_detector(ebay_title)
+        #cash converters includes color in specs
+        if ebay_vendor_name == 'cashconverters_es':
+            detected_color = color_detector(ebay_prod_specs)
         
         # ebay_vendor_notes= 'test'
 
@@ -824,7 +847,7 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             'ebay_prod_url':ebay_prod_url,
             'ebay_category':ebay_category,
             'ebay_prod_specs':ebay_prod_specs,
-            # 'ebay_prod_description':ebay_prod_description,
+            'ebay_prod_description':ebay_prod_description,
             'wp_price':wp_price,
             'pictures':pictures,
             'wp_shipping_time':wp_shipping_time,
