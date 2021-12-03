@@ -1,5 +1,4 @@
 
-
 import json
 import csv
 from os import extsep
@@ -100,10 +99,10 @@ AVAILABLE_COLORS_COL  = 5
 DETECTED_COLOR_COL    = 6
 DETECTED_WARRANTY_COL = 7
 EBAY_TOTAL_PRICE_COL  = 8
-SUBTITLE_COL          = 9
+# CHECKMARK RESERVED  = 9 RESERVED!
 EBAY_VENDOR_NOTES_COL = 10
+SUBTITLE_COL          = 11
 # EBAY_PROD_DESCRIPTION_LINK = 7 #description already included in prod_url
-# CHECKMARK RESERVED  = 11 RESERVED!
 EBAY_PROD_URL_COL     = 12
 #EMPTY CELL TO LEAVE THE ACCEPT MARK= 10
 EBAY_SELLER_VOTES_COL = 13
@@ -124,6 +123,7 @@ EBAY_PROD_SPECS_COL= 25
 EBAY_VENDOR_NAME_COL=26
 WP_SHIPPING_TIME_COL=27
 EBAY_PROD_DESCRIPTION_COL = 28
+MODEL_COL           =29
 
 
 def apply_wp_price(ebay_total_price):
@@ -244,95 +244,99 @@ def check_pics_db(target_model, target_attr_1):
     
 def get_wp_shipping_time(ebay_shipping_time):
     print(ebay_shipping_time)
+    
+    try:
 
-    #split ebay dates "vie. 9 jul. y el lun. 12 jul."
-    ebay_date = ebay_shipping_time.split('.')
-    ##get today's current day and month number
-    current_day = str(date.today()).split('-')[2]
-    current_month = str(date.today()).split('-')[1]
-    current_month = int(current_month)
-    current_month_name = calendar.month_name[current_month].lower()
-    current_month_letters = current_month_name[0:3]
+        #split ebay dates "vie. 9 jul. y el lun. 12 jul."
+        ebay_date = ebay_shipping_time.split('.')
+        ##get today's current day and month number
+        current_day = str(date.today()).split('-')[2]
+        current_month = str(date.today()).split('-')[1]
+        current_month = int(current_month)
+        current_month_name = calendar.month_name[current_month].lower()
+        current_month_letters = current_month_name[0:3]
 
-    # it can be one date(jul 12) or a range between 2 days (jul. 12 and jul. 16)
-    #if it's a range of 2 dates:
-    if len(ebay_date) == 5: 
-        #select chunk like (9 jul)
-        ebay_first_date = ebay_date[1]
-        #select the number (9)
-        ebay_first_day = ebay_first_date.split(' ')[1]
-        #select the month name (jul)
-        ebay_first_month = ebay_first_date.split(' ')[2]
-        #second_date = ebay_date[3]
-        #second_day = second_date.split(' ')[1]
-        #ebay_second_month = second_date.split(' ')[2]
-        
-        #first letters from current month name to compare with ebay's
-        # if it's the same month: jul == jul        
-        if current_month_letters == ebay_first_month:
-            shipping_days = int(ebay_first_day) - int(current_day)
+        # it can be one date(jul 12) or a range between 2 days (jul. 12 and jul. 16)
+        #if it's a range of 2 dates:
+        if len(ebay_date) == 5: 
+            #select chunk like (9 jul)
+            ebay_first_date = ebay_date[1]
+            #select the number (9)
+            ebay_first_day = ebay_first_date.split(' ')[1]
+            #select the month name (jul)
+            ebay_first_month = ebay_first_date.split(' ')[2]
+            #second_date = ebay_date[3]
+            #second_day = second_date.split(' ')[1]
+            #ebay_second_month = second_date.split(' ')[2]
+            
+            #first letters from current month name to compare with ebay's
+            # if it's the same month: jul == jul        
+            if current_month_letters == ebay_first_month:
+                shipping_days = int(ebay_first_day) - int(current_day)
 
-            if shipping_days == 1:
-                wp_shipping_text = "Envío en 24h"
-            elif shipping_days == 2:
-                wp_shipping_text = "Envío en 48h"
-            elif shipping_days == 3:
-                wp_shipping_text = "Envío en 72h"
-            elif shipping_days > 3: #if thre's more than 3 days return just the number of days
-                return shipping_days
-            #UPDATE RETURN ONLY THE DAYS
-            # return wp_shipping_text, shipping_days
-            return shipping_days
-
-        #if it's a different month, like jul-aug
-        elif current_month_letters != ebay_first_month:
-            #sample date: today's 27 jul, shipping arrival on 2 aug = 6 days
-            # (from today's number to the end month) + ebay 1º day
-            # (31-27)+2
-            now = datetime.datetime.now()
-            current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
-            daysto_end_month = current_month_total_days - now.month
-            wp_shipping_days = daysto_end_month + int(ebay_first_day)
-            return wp_shipping_days
-   
-    elif len(ebay_date) == 3: #there's only one date, like in "vie. 12 jul."
-        ebay_day_number = ebay_shipping_time.split('.')[1]
-        ebay_day_number = ebay_day_number.split(' ')[1]
-        ebay_month_name = ebay_shipping_time.split('.')[1].split(' ')[2]
-
-        #if it's the same month
-        if current_month_letters == ebay_month_name:
-            shipping_days = int(ebay_day_number) - int(current_day)
-            if shipping_days == 1:
-                wp_shipping_text = "Envío en 24h"
-            elif shipping_days == 2:
-                wp_shipping_text = "Envío en 48h"
-            elif shipping_days == 3:
-                wp_shipping_text = "Envío en 72h"
-            elif shipping_days > 3: #if thre's more than 3 days return just the number of days
-                return shipping_days
-            return shipping_days
-        
-        #if it's a different month
-        elif current_month_letters != ebay_month_name:
-
-            now = datetime.datetime.now()
-            current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
-            daysto_end_month = current_month_total_days - now.month
-            shipping_days = daysto_end_month + int(ebay_day_number)
-
-            if shipping_days == 1:
-                wp_shipping_text = "Envío en 24h"
-            elif shipping_days == 2:
-                wp_shipping_text = "Envío en 48h"
-            elif shipping_days == 3:
-                wp_shipping_text = "Envío en 72h"
-            elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+                if shipping_days == 1:
+                    wp_shipping_text = "Envío en 24h"
+                elif shipping_days == 2:
+                    wp_shipping_text = "Envío en 48h"
+                elif shipping_days == 3:
+                    wp_shipping_text = "Envío en 72h"
+                elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+                    return shipping_days
+                #UPDATE RETURN ONLY THE DAYS
+                # return wp_shipping_text, shipping_days
                 return shipping_days
 
-            #UPDATE RETURN ONLY SHIPPING DAYS
-            # return wp_shipping_text, shipping_days
-            return shipping_days
+            #if it's a different month, like jul-aug
+            elif current_month_letters != ebay_first_month:
+                #sample date: today's 27 jul, shipping arrival on 2 aug = 6 days
+                # (from today's number to the end month) + ebay 1º day
+                # (31-27)+2
+                now = datetime.datetime.now()
+                current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
+                daysto_end_month = current_month_total_days - now.month
+                wp_shipping_days = daysto_end_month + int(ebay_first_day)
+                return wp_shipping_days
+    
+        elif len(ebay_date) == 3: #there's only one date, like in "vie. 12 jul."
+            ebay_day_number = ebay_shipping_time.split('.')[1]
+            ebay_day_number = ebay_day_number.split(' ')[1]
+            ebay_month_name = ebay_shipping_time.split('.')[1].split(' ')[2]
+
+            #if it's the same month
+            if current_month_letters == ebay_month_name:
+                shipping_days = int(ebay_day_number) - int(current_day)
+                if shipping_days == 1:
+                    wp_shipping_text = "Envío en 24h"
+                elif shipping_days == 2:
+                    wp_shipping_text = "Envío en 48h"
+                elif shipping_days == 3:
+                    wp_shipping_text = "Envío en 72h"
+                elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+                    return shipping_days
+                return shipping_days
+            
+            #if it's a different month
+            elif current_month_letters != ebay_month_name:
+
+                now = datetime.datetime.now()
+                current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
+                daysto_end_month = current_month_total_days - now.month
+                shipping_days = daysto_end_month + int(ebay_day_number)
+
+                if shipping_days == 1:
+                    wp_shipping_text = "Envío en 24h"
+                elif shipping_days == 2:
+                    wp_shipping_text = "Envío en 48h"
+                elif shipping_days == 3:
+                    wp_shipping_text = "Envío en 72h"
+                elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+                    return shipping_days
+
+                #UPDATE RETURN ONLY SHIPPING DAYS
+                # return wp_shipping_text, shipping_days
+                return shipping_days
+    except Exception as e:
+        print('exception in ebay_price()',e)
 
 # def apply_category(ebay_category):
     # #using target_db_category to guide, from scrapper_output file
@@ -547,6 +551,7 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     warranty    =data_to_dump.get('warranty')
     available_colors  =data_to_dump.get('available_colors')
     subtitle  =data_to_dump.get('subtitle')
+    target_model  =data_to_dump.get('target_model')
 
 
 
@@ -579,6 +584,7 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     ws.cell(row=last_row, column= DETECTED_WARRANTY_COL ,value= warranty)
     ws.cell(row=last_row, column= AVAILABLE_COLORS_COL ,value= available_colors)
     ws.cell(row=last_row, column= SUBTITLE_COL ,value= subtitle)
+    ws.cell(row=last_row, column= MODEL_COL ,value= target_model)
 
     wb.save(OUTPUT_FILE)
 
@@ -860,7 +866,8 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             'seller_votes':seller_votes,
             'detected_color':detected_color,
             'warranty':warranty,
-            'available_colors':available_colors
+            'available_colors':available_colors,
+            'target_model':target_model
         }
 
         filtered_list.append(data_to_dump)
