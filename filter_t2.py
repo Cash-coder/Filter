@@ -237,7 +237,7 @@ def get_short_description(ebay_returns, warranty):
     # Truth table: 8 combinations days/warranty, days/no warranty, no days/warranty
     if len(number_ofdays) > 0:
         if warranty != None: # return and warranty
-            short_des = f'Este artículo dispone de un período de prueba de {number_ofdays} días. \n Además disfruta de una garantía completa de {warranty}.\nDespachamos Envíos en 24h'
+            short_des = f'Este artículo dispone de un período de prueba de {number_ofdays} días. \nAdemás disfruta de una garantía completa de {warranty}.\nDespachamos Envíos en 24h'
         elif warranty == None: # return, no warranty
             short_des = f'Este artículo dispone de un período de prueba de {number_ofdays} días.\nDespachamos Envíos en 24h'
     else: #no return days
