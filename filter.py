@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 DEEPL_AUTH_KEY = 'ea826f71-83b5-f5aa-231f-aad69f95aec2:fx'
 
-PICS_DB    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\PICS_DB.xlsx"
+WEB_PICS_DB    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
 # INPUT_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.csv"
 INPUT_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
 OUTPUT_FILE= r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx" 
@@ -203,10 +203,12 @@ def make_ebay_pics_urls(url_list):
         modified_urls.append(new_url)
     return modified_urls
 
+#I have to update, now we've 2 db's
+#in this case will be web_pics_db
 def check_pics_db(target_model, target_attr_1):
     from openpyxl import load_workbook
 
-    wb = load_workbook(PICS_DB)
+    wb = load_workbook(WEB_PICS_DB)
     ws = wb.active
 
     #for pics in list:
@@ -453,13 +455,13 @@ def detect_warranty(subtitle, description):
         subtitle = subtitle.lower()
         for item in one_year:
             if item in subtitle:
-                return '12 months'
+                return '1 año'
         for item in half_year:
             if item in subtitle:
-                return '6 months'
+                return '6 meses'
         for item in two_years:
             if item in subtitle:
-                return '24 months'
+                return '2 años'
     except AttributeError as e:
         print('asdadasdsd')
         print(e)
@@ -639,9 +641,8 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
         ebay_import_taxes  =item[EBAY_IMPORT_TAXES_NAME]
         target_model       =item[TARGET_MODEL_NAME]
         target_prod_state  =item[TARGET_PROD_STATE]
-        ebay_title =           item[EBAY_TITLE_NAME]
-        # price =           item[]
         query =           item[EBAY_QUERY_NAME]
+        # price =           item[]
         ebay_shipping_time = item[EBAY_SHIPPING_TIME]
         ebay_returns =    item[EBAY_RETURNS_NAME]
         ebay_prod_id =    item[EBAY_ID_NAME]
@@ -655,6 +656,9 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
         subtitle = item[SUBTITLE_NAME]
 
         if area_served == None: area_served='not result'
+
+        ebay_title =     item[EBAY_TITLE_NAME]
+        ebay_title = deepl_translate(ebay_title)
         
         
         #SAVING TIME TOTEST, UNCOMENT 
@@ -666,7 +670,7 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
         else:
             ebay_prod_description = get_textfrom_html(ebay_prod_description)
 
-        warranty     = detect_warranty(ebay_subtitle, ebay_prod_description)
+        warranty  = detect_warranty(ebay_subtitle, ebay_prod_description)
 
         ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
 

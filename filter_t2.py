@@ -16,7 +16,7 @@ FILTER_T2_OUTPUT =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code
 
 # LOGS_FOLDER    =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\logs_folder"
 WEB_PICS_DB    =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
-WEB_PICS_SHEET ='Sheet3'
+WEB_PICS_SHEET ='Sheet4' #where the id's are
 ADS_PICS_DB    =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\ADS_PICS_DB.xlsx"
 ADS_PICS_SHEET ='Sheet7' 
 
@@ -76,11 +76,13 @@ WARRANTY2_COL        = 15
 EBAY_RETURNS2_COL    = 16
 WEB_PICS2_COL        = 17
 EBAY_ID2_COL         = 18
-# SOURCE_SPECS2      = 19
+SOURCE_SPECS         = 19
 TARGET_MODEL2_COL    = 20
 VARIABLE_PROD2_COL   = 21
 ADS_PICS2_1_COL      = 22
 ADS_PICS2_2_COL      = 23
+EBAY_PICS2_COL       = 24
+WP_SHORT_DESCRIPTION_COL = 25
 
 
 
@@ -121,7 +123,7 @@ def clean_excel(EXCEL_FILE):
     ws = wb.active
 
     #starting at 2, delete all rows
-    ws.delete_rows(2, ws.max_row+1)
+    ws.delete_rows(3, ws.max_row+1)
     wb.save(EXCEL_FILE)
 
     logging.info(f'cleaned set_prod_db  and gaps_file to begin fresh writing')
@@ -130,7 +132,7 @@ def clean_excel(EXCEL_FILE):
 # clean_excel(FILTER_OUTPUT_PATH)
 
 #get pics using model and color (target_attr)
-def get_pics_paths(file, target_model, target_attr):
+def get_pics_ids(file, target_model, target_attr):
     from openpyxl import load_workbook
 
     #row by row, if item and attr1 = target, return pics, else, return not found
@@ -160,9 +162,9 @@ def get_pics_paths(file, target_model, target_attr):
 
         # print(f'excel_pic_model: {pic_model}, excel_pic_attr: {pic_attr}')
 
-        #if model == target_model, color == color: get those pics
-        if target_model == pic_model and target_attr == pic_attr:
-            print(f'match! ')
+        #if model == target_model, color == color: get those pics // using in instead of == to allow variations in colors: negro,gris,grafito
+        if target_model == pic_model and target_attr in pic_attr:
+            # print(f'match! ')
             pics_list = get_pics_by_row(file, row_number)
             return pics_list
         else:
@@ -194,18 +196,20 @@ def get_pics_by_row(file, row_number):
 
     if len(pics_list) > 0:
         #web_pics need format [{"id":"link"}, ...]
-        if file == 'web_pics':
-            web_pics_formatted = format_webpics(pics_list)
-            return web_pics_formatted 
+        # FORMATTED IN WOO_API, HERE RETURN ID, ID, ID
+        # if file == 'web_pics':
+            # web_pics_formatted = format_webpics(pics_list)
+            # return web_pics_formatted 
         return pics_list # return ads path
     else:
         return 'not found'
 
+#NOT USED, FORMATTED IN WOO_API.PY
 #web_pics need to convert from link to [{"id":"link"}, ...]
 def format_webpics(pics_list):
     formatted_list = []
-    for link in pics_list:
-        entry = {"id":f"{link}"}
+    for id in pics_list:
+        entry = {"id":int(id)}
         # print(entry)
         formatted_list.append(entry)
     return formatted_list
@@ -223,6 +227,29 @@ def compare_states(target_prod_state, ebay_prod_state):
     
     return prod_state
 
+def get_short_description(ebay_returns, warranty):
+    #get number of days from ebay_returns
+    #if warranty, code it. If not, use alt text
+
+    # split string by spaces, if chunk is digit, put it in list
+    number_ofdays = [int(s) for s in ebay_returns.split(' ') if s.isdigit()]
+
+    # Truth table: 8 combinations days/warranty, days/no warranty, no days/warranty
+    if len(number_ofdays) > 0:
+        if warranty != None: # return and warranty
+            short_des = f'Este artículo dispone de un período de prueba de {number_ofdays} días. \n Además disfruta de una garantía completa de {warranty}.\nDespachamos Envíos en 24h'
+        elif warranty == None: # return, no warranty
+            short_des = f'Este artículo dispone de un período de prueba de {number_ofdays} días.\nDespachamos Envíos en 24h'
+    else: #no return days
+        if warranty != None: #no returns, yes warranty
+            short_des = f'Este artículo de una garantía completa de {warranty}.\nDespachamos Envíos en 24h'
+        elif warranty == None:  #no returns, no warranty
+            short_des = f'Despachamos Envíos en 24h'            
+
+    return short_des
+
+
+
 #write to filter_output_t2, sheet1 if data is ok, sheet2 = data to review by human
 def recordto_t2(sheet, data_torecord):
     from openpyxl import load_workbook
@@ -234,6 +261,7 @@ def recordto_t2(sheet, data_torecord):
     target_prod_state   = data_torecord.get('target_prod_state')
     ebay_price  = data_torecord.get('ebay_price')
     ebay_shipping_time  = data_torecord.get('ebay_shipping_time')
+    ebay_prod_specs  = data_torecord.get('ebay_prod_specs')
     ebay_prod_id    = data_torecord.get('ebay_prod_id')
     target_category = data_torecord.get('target_category')
     target_attr_1   = data_torecord.get('target_attr_1')
@@ -249,10 +277,14 @@ def recordto_t2(sheet, data_torecord):
     target_model    = data_torecord.get('target_model')
     ads_pics        = data_torecord.get('ads_pics')
     wp_ebay_title   = data_torecord.get('ebay_title')
+    wp_short_description = data_torecord.get('wp_short_description')
+    ebay_pics   = data_torecord.get('ebay_pics')
     web_pics    = data_torecord.get('web_pics')
     web_pics = str(web_pics)
 
     last_row_s1 = ws.max_row + 1
+
+    print(ebay_pics)
 
     # if they exists, unpack ads_pics into 2 variable strings, easier to handle later
     if ads_pics:
@@ -281,10 +313,12 @@ def recordto_t2(sheet, data_torecord):
     ws.cell(row=last_row_s1, column= WEB_PICS2_COL,value=  web_pics)
     ws.cell(row=last_row_s1, column= EBAY_ID2_COL,value=  ebay_prod_id)
     ws.cell(row=last_row_s1, column= TARGET_MODEL2_COL,value=  target_model)
+    ws.cell(row=last_row_s1, column= EBAY_PICS2_COL,value=  ebay_pics)
+    ws.cell(row=last_row_s1, column= SOURCE_SPECS, value=  ebay_prod_specs)
+    ws.cell(row=last_row_s1, column= WP_SHORT_DESCRIPTION_COL, value=  wp_short_description)
     # ws.cell(row=last_row_s1, column= VARIABLE_PROD2_COL,value=  ) #variable prods ignored for now
 
     wb.save(FILTER_T2_OUTPUT)
-
 
 
 #read filter t1 output, search for column with checkmark
@@ -305,14 +339,24 @@ def run():
     wb = load_workbook(FILTER_OUTPUT1)
     ws = wb.active
 
+    #clean f2 output before sending new data
+    clean_excel(FILTER_T2_OUTPUT)
+
     current_row = START_ROW
     total_rows = len(ws['A'])
     print(total_rows)
     for row in range(total_rows):
-        
+
+        query =  ws.cell(row=current_row, column= QUERY_COL).value
+        # print(query)
+
+
         #ignore rows without checkmark
         check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
-        if check_mark == None : continue 
+        check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
+        if check_mark == None : 
+            current_row += 1
+            continue 
 
         print('------------------')
 
@@ -346,7 +390,7 @@ def run():
         available_colors = str(available_colors) # commas makes it tupple
         target_model =   ws.cell(row=current_row, column= MODEL_COL).value
         target_model = str(target_model).lower()
-
+         
         print(f'target_model: {target_model},target_attr_1: {target_attr_1} target_attr_2 {target_attr_2}') 
 
         current_row += 1 #to get to the next row in the next iteration
@@ -354,20 +398,22 @@ def run():
         prod_state = compare_states(target_prod_state, ebay_prod_state)
         
         #get ad pics paths
-        web_pics =  get_pics_paths('web_pics', target_model, target_attr_2)
+        web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
         # print(f'web_pics: {web_pics}')
         if web_pics == 'not found':
             print('not web pics')
         else:
             print(f'web_pics {web_pics}')
         
-        ads_pics = get_pics_paths('ads_pics',target_model, target_attr_2)
+        ads_pics = get_pics_ids('ads_pics',target_model, target_attr_2)
+
+        wp_short_description = get_short_description(ebay_returns, warranty)
 
         #need to know woo_id before upload to prods_db. 
 
         #create FILTER_T2_OUTPUT.xlsx
         # sheet1 = prods to upload adn get woo_id
-        # sheet2 = prods with something missing, pics, warranty, etc...
+        # sheet2 = prods with something missing, pics, warranty, etc...        
 
         data = {
             'query':query,
@@ -390,8 +436,11 @@ def run():
             'web_pics':web_pics,
             'ads_pics':ads_pics,
             'ebay_title':ebay_title,
+            'ebay_pics':ebay_pics,
+            'ebay_prod_specs':ebay_prod_specs,
+            'wp_short_description':wp_short_description
             #woo_id is included after wp_importer.py
-            }
+            }        
 
         #record to FILTER_T2_OUTPUT 
         #if some issue, record to sheet2, if is all right record to sheet1
@@ -409,7 +458,7 @@ if __name__ == '__main__':
 
 
 #TRANSLATE
-# deepl_auth_key = 'ea826f71-83b5-f5aa-231f-aad69f95aec2:fx'
+# deepl_auth_key = 'xxx'
 # import deepl
 # text = 'Der Endverbraucher ist verpflichtet Batterien ordnungsgemäß bei keiner Verwendung mehr zu entsorgen. Denn Batterien gehören nicht in den Hausmüll! Gerne helfen wir Ihnen bei Informationen zu Standorten in Ihrer Nähe. Detaillierte Informationen finden Sie in unseren AGB."'
 # target_language = 'ES'
@@ -430,7 +479,7 @@ if __name__ == '__main__':
 
 # ebay_prod_id = 114974576186
 # # api = Shopping(config_file='ebay.yaml')
-# api = Shopping(appid='VadymKoz-find-PRD-0a5a8fca7-7fbfe1d0', config_file=None)
+# api = Shopping(appid='XXX', config_file=None)
 # request = {'ItemID':ebay_prod_id}
 # response = api.execute('GetSingleItem', request)
 # print(response)
