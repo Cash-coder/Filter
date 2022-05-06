@@ -1,9 +1,9 @@
-
 import json
 import csv
 from os import extsep
 import random
 from re import T
+import string
 import traceback
 from ebaysdk.finding import Connection
 from ebaysdk.shopping import Connection as Shopping
@@ -13,19 +13,30 @@ import datetime
 import calendar 
 import logging
 from openpyxl import load_workbook
+from authentications import DEEPL_AUTH_KEY
+
+# py functions files
+import funcs_currency
+
+# read crawler json output 
+# for prod in file:
+    # get all prod data
+    # apply funcs (wp_price, pics, detect warranty, color, GBP/USD to EUR  ...)
+        # chek pics_db, if we have pics for that prod, use those pics
+    # filter (price, payment methods, vendor votes, ...)
+    # write to output file FILTER_OUTPUT.xlsx
 
 
 logging.basicConfig(level=logging.INFO)
 
-DEEPL_AUTH_KEY = 'ea826f71-83b5-f5aa-231f-aad69f95aec2:fx'
-
 WEB_PICS_DB    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
-# INPUT_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.csv"
-INPUT_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
-OUTPUT_FILE= r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx" 
-
+INPUT_FILE     = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
+OUTPUT_FILE    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx" 
 FILTER_OUTPUT_PATH =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx"
 LOGS_FOLDER        =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\logs_folder"
+
+# WARNING!! THIS FILE PATH HAS ALSO TO BE SET/UPDATED IN funcs_currency.py
+CURRENCY_EQUIVALENCES_FILE = r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\filter\exchange_to_EUR.txt'
 
 
 # JSON FILTER INPUT NAMES, CRAWLER OUTPUT
@@ -41,7 +52,7 @@ EBAY_ID_NAME        = 'ebay_article_id'
 EBAY_PROD_URL_NAME  = 'prod_url'
 EBAY_VENDOR_NAME    = 'ebay_vendor'
 EBAY_SELLER_VOTES_NAME='seller_votes'
-EBAY_CATEGORY_NAME  = 'category'
+# EBAY_CATEGORY_NAME  = 'category'
 EBAY_PAYMENT_NAME   = 'payment_methods'
 EBAY_PROD_SPECS_NAME= 'prod_specs'
 EBAY_PROD_STATE_NAME= 'product_state'
@@ -50,7 +61,7 @@ EBAY_SERVED_AREA_NAME='served_area'
 EBAY_REVIEWS_NAME   = 'reviews'
 EBAY_PROD_SOLD_OUT_NAME = 'product_sold_out_text'
 EBAY_IMPORT_TAXES_NAME  = 'import_taxes'
-TARGET_CATEGORY_NAME    = 'target_category'
+TARGET_CATEGORY_NAME    = 'target_category' #used later in importer, if smartphone, import to smartphones
 TARGET_ATTR_1_NAME   = 'query_attribute_1'
 TARGET_ATTR_2_NAME   = 'query_attribute_2'
 TARGET_MODEL_NAME    = 'query_model'
@@ -100,7 +111,8 @@ DETECTED_COLOR_COL    = 6
 DETECTED_WARRANTY_COL = 7
 EBAY_TOTAL_PRICE_COL  = 8
 # CHECKMARK RESERVED  = 9 RESERVED!
-EBAY_VENDOR_NOTES_COL = 10
+# EBAY_VENDOR_NOTES_COL = 10 # NOT USED
+TARGET_ATTR_1_COL     = 10 
 SUBTITLE_COL          = 11
 # EBAY_PROD_DESCRIPTION_LINK = 7 #description already included in prod_url
 EBAY_PROD_URL_COL     = 12
@@ -117,9 +129,9 @@ PICTURES_COL       = 19
 EBAY_PROD_ID_COL   = 20
 EBAY_CATEGORY_COL  = 21
 TARGET_CATEGORY_COL= 22
-TARGET_ATTR_1_COL  = 23
-TARGET_ATTR_2_COL  = 24 
-EBAY_PROD_SPECS_COL= 25
+                #   =23 #  NOT USED, AVAILABLE
+TARGET_ATTR_2_COL   =24 
+EBAY_PROD_SPECS_COL =25
 EBAY_VENDOR_NAME_COL=26
 WP_SHIPPING_TIME_COL=27
 EBAY_PROD_DESCRIPTION_COL = 28
@@ -127,20 +139,19 @@ MODEL_COL           =29
 
 
 def apply_wp_price(ebay_total_price):
-    print(ebay_total_price)
 
     if int(ebay_total_price) > 1001:
-        margin = 0.03
+        margin = 0.025
     elif int(ebay_total_price) in range(800,1000):
-        margin = 0.035 # 3.5%  
+        margin = 0.030 # 3.5%  
     elif int(ebay_total_price) in range(600,800):
-        margin = 0.04 # 4%  
+        margin = 0.035 # 4%  
     elif int(ebay_total_price) in range(400,600):
-        margin = 0.05 # 5%  
+        margin = 0.045 # 5%  
     elif int(ebay_total_price) in range(300,400):
-        margin = 0.06 # 6%  
+        margin = 0.055 # 6%  
     elif int(ebay_total_price) in range(200,300):
-        margin = 0.08 # 8%  
+        margin = 0.065 # 8%  
     elif int(ebay_total_price) in range(100,200):
         margin = 0.10 # 10%  
     elif int(ebay_total_price) in range(50,100):
@@ -153,9 +164,14 @@ def apply_wp_price(ebay_total_price):
     stripe_fee = 0.014 # 1.4%
     benefit = ebay_total_price * margin
     taxes = benefit * 0.21 #21%
+    
     #not 100% correct, stripe charges in the final amount
     stripe_fee_n =  (ebay_total_price + benefit + taxes) * stripe_fee
     final_price = ebay_total_price + benefit + taxes + stripe_fee_n
+    
+    #apply the coupon code used in the ads
+    coupon_code_discount = 0.05 #5%
+    final_price = final_price * coupon_code_discount + final_price
 
     #add attractive termination to the price: 55 -> 54,45
     terminator_options = [0.14,0.23,0.24,0.34,0.49,0.57,0.83,0.97]
@@ -193,36 +209,65 @@ def get_ebay_pictures(ebay_prod_id):
         print(e)
         pass
 
+#replace the last url parametter for s-l600.jpg to get the big pic instead of the thumbnail
 def make_ebay_pics_urls(url_list):
-    #replace the last url parametter for s-l600.jpg to get the big pic instead of the thumbnail
-    modified_urls = []
-    for url in url_list:
+
+    def change_tail(url):
         chunks = url.split('/')
         tail   = chunks[-1]
-        new_url = url.replace(tail, 's-l500.jpg') #ls600 accepted as well
-        modified_urls.append(new_url)
-    return modified_urls
+        modified_url = url.replace(tail, 's-l500.jpg')
+        return modified_url
+    
+    def convert_to_str(lst):
+        pics_string = ''
+        for pic in lst:
+            pic = str(pic)
+            pics_string += pic
+            pics_string += ','
+        return pics_string
+
+    # if string == only 1 url
+    if isinstance(url_list, str): 
+        modified_url = change_tail(url_list)
+        return modified_url
+
+    # if lsit == several urls
+    if isinstance(url_list, list): 
+        modified_urls = []
+        for url in url_list:
+            new_url = change_tail(url)
+            modified_urls.append(new_url)
+        
+        #convert from list to string to write to xlsx
+        #to avoid error can't convert to excel, convert from list to string
+        pics_string = convert_to_str(modified_urls)
+
+        return pics_string
+    
 
 #I have to update, now we've 2 db's
 #in this case will be web_pics_db
 def check_pics_db(target_model, target_attr_1):
     from openpyxl import load_workbook
 
+    #for row in web_pics_file:
+        #row_pic_name
+        #row_pic_model
+        # if name and model == target name and model:
+            #append all pics from that row to list
+            #return list
+    #if at the end of file, the list is == 0, return 'there aren\'t any pics'
+    #else, return the list
+
     wb = load_workbook(WEB_PICS_DB)
     ws = wb.active
-
-    #for pics in list:
-        #if pic in pics_db:
-            #use pictures from db
-        #else:
-            #return 'there aren\'t any pics in pics_db for this item'
-
+    
     pics_list = []
     for row in ws.iter_rows(min_row=2):
         row_number = row[0].row
 
         pic_model   = ws.cell(row=row_number, column=1).value
-        pic_attr  = ws.cell(row=row_number, column=2).value
+        pic_attr    = ws.cell(row=row_number, column=2).value
         # print('----------', pic_model, pic_attr)
 
         if target_model == pic_model and target_attr_2 == pic_attr:
@@ -244,110 +289,123 @@ def check_pics_db(target_model, target_attr_1):
 
     #if item==  and attr ==:
     
+# takes raw html and gives a number of days|and the original: "5|5 march to 10 march"
 def get_wp_shipping_time(ebay_shipping_time):
-    print(ebay_shipping_time)
-    
+    from bs4 import BeautifulSoup as bs
+
     try:
+        ebay_shipping_time = str(ebay_shipping_time)
+        soup = bs(ebay_shipping_time, features='lxml')
+        shipping_bs_separated = soup.get_text(separator="///")
 
-        #split ebay dates "vie. 9 jul. y el lun. 12 jul."
-        ebay_date = ebay_shipping_time.split('.')
-        ##get today's current day and month number
-        current_day = str(date.today()).split('-')[2]
-        current_month = str(date.today()).split('-')[1]
-        current_month = int(current_month)
-        current_month_name = calendar.month_name[current_month].lower()
-        current_month_letters = current_month_name[0:3]
+        splitted = shipping_bs_separated.split('///')
 
-        # it can be one date(jul 12) or a range between 2 days (jul. 12 and jul. 16)
-        #if it's a range of 2 dates:
-        if len(ebay_date) == 5: 
-            #select chunk like (9 jul)
-            ebay_first_date = ebay_date[1]
-            #select the number (9)
-            ebay_first_day = ebay_first_date.split(' ')[1]
-            #select the month name (jul)
-            ebay_first_month = ebay_first_date.split(' ')[2]
-            #second_date = ebay_date[3]
-            #second_day = second_date.split(' ')[1]
-            #ebay_second_month = second_date.split(' ')[2]
-            
-            #first letters from current month name to compare with ebay's
-            # if it's the same month: jul == jul        
-            if current_month_letters == ebay_first_month:
-                shipping_days = int(ebay_first_day) - int(current_day)
+        try:
+            days = f"from {splitted[3]} to {splitted[5]}"
+        except IndexError:
+            days = shipping_bs_separated.replace('///', ' ')
+        # print(f"this is days: {days}")
 
-                if shipping_days == 1:
-                    wp_shipping_text = "Envío en 24h"
-                elif shipping_days == 2:
-                    wp_shipping_text = "Envío en 48h"
-                elif shipping_days == 3:
-                    wp_shipping_text = "Envío en 72h"
-                elif shipping_days > 3: #if thre's more than 3 days return just the number of days
-                    return shipping_days
-                #UPDATE RETURN ONLY THE DAYS
-                # return wp_shipping_text, shipping_days
-                return shipping_days
+        #can improve and get the number of days using below old func
+        return days
 
-            #if it's a different month, like jul-aug
-            elif current_month_letters != ebay_first_month:
-                #sample date: today's 27 jul, shipping arrival on 2 aug = 6 days
-                # (from today's number to the end month) + ebay 1º day
-                # (31-27)+2
-                now = datetime.datetime.now()
-                current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
-                daysto_end_month = current_month_total_days - now.month
-                wp_shipping_days = daysto_end_month + int(ebay_first_day)
-                return wp_shipping_days
-    
-        elif len(ebay_date) == 3: #there's only one date, like in "vie. 12 jul."
-            ebay_day_number = ebay_shipping_time.split('.')[1]
-            ebay_day_number = ebay_day_number.split(' ')[1]
-            ebay_month_name = ebay_shipping_time.split('.')[1].split(' ')[2]
-
-            #if it's the same month
-            if current_month_letters == ebay_month_name:
-                shipping_days = int(ebay_day_number) - int(current_day)
-                if shipping_days == 1:
-                    wp_shipping_text = "Envío en 24h"
-                elif shipping_days == 2:
-                    wp_shipping_text = "Envío en 48h"
-                elif shipping_days == 3:
-                    wp_shipping_text = "Envío en 72h"
-                elif shipping_days > 3: #if thre's more than 3 days return just the number of days
-                    return shipping_days
-                return shipping_days
-            
-            #if it's a different month
-            elif current_month_letters != ebay_month_name:
-
-                now = datetime.datetime.now()
-                current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
-                daysto_end_month = current_month_total_days - now.month
-                shipping_days = daysto_end_month + int(ebay_day_number)
-
-                if shipping_days == 1:
-                    wp_shipping_text = "Envío en 24h"
-                elif shipping_days == 2:
-                    wp_shipping_text = "Envío en 48h"
-                elif shipping_days == 3:
-                    wp_shipping_text = "Envío en 72h"
-                elif shipping_days > 3: #if thre's more than 3 days return just the number of days
-                    return shipping_days
-
-                #UPDATE RETURN ONLY SHIPPING DAYS
-                # return wp_shipping_text, shipping_days
-                return shipping_days
     except Exception as e:
-        print('exception in ebay_price()',e)
+        print(f'exception in get_wp_shipping_time(): {e}\nebay_shipping_time:{ebay_shipping_time:}')
+        traceback.print_exc
 
-# def apply_category(ebay_category):
-    # #using target_db_category to guide, from scrapper_output file
-    # if ebay_category == 'Movilesytelefonia' or 'Movilesysmartphones':
-        # prod_db_category = 'smartphones'   
-    # #apply undefined if it's out of range
-    # else:
-        # prod_db_category = 'undefined'
-    # return prod_db_category
+        
+    ### old func, maybe useful later    
+    # try:
+    #     #split ebay dates "vie. 9 jul. y el lun. 12 jul."
+    #     ebay_date = ebay_shipping_time.split('.')
+    #     ##get today's current day and month number
+    #     current_day = str(date.today()).split('-')[2]
+    #     current_month = str(date.today()).split('-')[1]
+    #     current_month = int(current_month)
+    #     current_month_name = calendar.month_name[current_month].lower()
+    #     current_month_letters = current_month_name[0:3]
+
+    #     # it can be one date(jul 12) or a range between 2 days (jul. 12 and jul. 16)
+    #     #if it's a range of 2 dates:
+    #     if len(ebay_date) == 5: 
+    #         #select chunk like (9 jul)
+    #         ebay_first_date = ebay_date[1]
+    #         #select the number (9)
+    #         ebay_first_day = ebay_first_date.split(' ')[1]
+    #         #select the month name (jul)
+    #         ebay_first_month = ebay_first_date.split(' ')[2]
+    #         #second_date = ebay_date[3]
+    #         #second_day = second_date.split(' ')[1]
+    #         #ebay_second_month = second_date.split(' ')[2]
+            
+    #         #first letters from current month name to compare with ebay's
+    #         # if it's the same month: jul == jul        
+    #         if current_month_letters == ebay_first_month:
+    #             shipping_days = int(ebay_first_day) - int(current_day)
+
+    #             if shipping_days == 1:
+    #                 wp_shipping_text = "Envío en 24h"
+    #             elif shipping_days == 2:
+    #                 wp_shipping_text = "Envío en 48h"
+    #             elif shipping_days == 3:
+    #                 wp_shipping_text = "Envío en 72h"
+    #             elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+    #                 return shipping_days
+    #             #UPDATE RETURN ONLY THE DAYS
+    #             # return wp_shipping_text, shipping_days
+    #             return shipping_days
+
+    #         #if it's a different month, like jul-aug
+    #         elif current_month_letters != ebay_first_month:
+    #             #sample date: today's 27 jul, shipping arrival on 2 aug = 6 days
+    #             # (from today's number to the end month) + ebay 1º day
+    #             # (31-27)+2
+    #             now = datetime.datetime.now()
+    #             current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
+    #             daysto_end_month = current_month_total_days - now.month
+    #             wp_shipping_days = daysto_end_month + int(ebay_first_day)
+    #             return wp_shipping_days
+    
+    #     elif len(ebay_date) == 3: #there's only one date, like in "vie. 12 jul."
+    #         ebay_day_number = ebay_shipping_time.split('.')[1]
+    #         ebay_day_number = ebay_day_number.split(' ')[1]
+    #         ebay_month_name = ebay_shipping_time.split('.')[1].split(' ')[2]
+
+    #         #if it's the same month
+    #         if current_month_letters == ebay_month_name:
+    #             shipping_days = int(ebay_day_number) - int(current_day)
+    #             if shipping_days == 1:
+    #                 wp_shipping_text = "Envío en 24h"
+    #             elif shipping_days == 2:
+    #                 wp_shipping_text = "Envío en 48h"
+    #             elif shipping_days == 3:
+    #                 wp_shipping_text = "Envío en 72h"
+    #             elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+    #                 return shipping_days
+    #             return shipping_days
+            
+    #         #if it's a different month
+    #         elif current_month_letters != ebay_month_name:
+
+    #             now = datetime.datetime.now()
+    #             current_month_total_days = calendar.monthrange(now.year,now.month)[1]        
+    #             daysto_end_month = current_month_total_days - now.month
+    #             shipping_days = daysto_end_month + int(ebay_day_number)
+
+    #             if shipping_days == 1:
+    #                 wp_shipping_text = "Envío en 24h"
+    #             elif shipping_days == 2:
+    #                 wp_shipping_text = "Envío en 48h"
+    #             elif shipping_days == 3:
+    #                 wp_shipping_text = "Envío en 72h"
+    #             elif shipping_days > 3: #if thre's more than 3 days return just the number of days
+    #                 return shipping_days
+
+    #             #UPDATE RETURN ONLY SHIPPING DAYS
+    #             # return wp_shipping_text, shipping_days
+    #             return shipping_days
+    # except Exception as e:
+    #     print('exception in get_wp_shipping_time()',e)
 
 # def apply_prod_brand(ebay_title):
     # #do the same, using data from target
@@ -400,6 +458,7 @@ def clean_excel(EXCEL_FILE):
     logging.info(f'cleaned set_prod_db  and gaps_file to begin fresh writing')
 
 def color_detector(ebay_title):
+    # print(f'ebay_title: {ebay_title}')
     ebay_title = ebay_title.lower()
     # ordering all colors in the same order, the using index, if the first match in iatlina, you know it's negro, second mattch= azul
     spanish_colors = ['negro',  'azul',  'marrón',  'gris',  'verde',   'naranja',  ' rosa',    'violeta',  'rojo', 'blanco',    'amarillo', 'oro', 'plata']
@@ -434,11 +493,13 @@ def color_detector(ebay_title):
         if color in ebay_title:
             i = german_colors.index(color)
             detected_color = spanish_colors[i]
+            return detected_color
     #french
     for color in french_colors:
         if color in ebay_title:
             i = french_colors.index(color)
             detected_color = spanish_colors[i]
+            return detected_color
 
     return None
 
@@ -473,31 +534,103 @@ def detect_warranty(subtitle, description):
         description = description.lower()
         for item in one_year:
             if item in description:
-                return '12 months'
+                return '1 año'
         for item in half_year:
             if item in description:
-                return '6 months'
+                return '6 meses'
         for item in two_years:
             if item in description:
-                return '24 months'
+                return '2 años'
     except AttributeError: pass
 
 
-def deepl_translate(text, target_language='ES'):
-    import deepl
-    global DEEPL_AUTH_KEY 
+def nlp_translate(text, target_language='es'):
+    import requests
+    import authentications #py file
+
+    translate_api_key = authentications.RapidAPI_Key
+
+    url = "https://nlp-translation.p.rapidapi.com/v1/translate"
+
+    # querystring = {"text":t,"to":"es","from":"de"}
+    querystring = {"text":text, "to":target_language}
+
+    headers = {
+        "X-RapidAPI-Host": "nlp-translation.p.rapidapi.com",
+        "X-RapidAPI-Key": translate_api_key
+    }
+
+    response = requests.request("GET", url, headers=headers, params=querystring).json()
+    # print(response)
     
-    translator = deepl.Translator(DEEPL_AUTH_KEY) 
-    result = translator.translate_text(text, target_lang=target_language) 
-    translated_text = result.text
-    return translated_text
+    if response['translated_characters'] > 0:
+        translated_text = response['translated_text']['es']
+        
+        try:
+            origin_language = response['from']
+            return translated_text, origin_language
+        except KeyError: # when text is alredy in spanish doesn0t appear 'from'
+            return translated_text, '---'
+    else: # if no translation performed
+        return text, '---'
+
+def translate_specs(specs):
+    
+    # remove some parts we don't want, like "El articulo puede mostrar un deterioro"
+    # a part of the text is spanish already
+    # if you put into the translator it interprets it like spanish, so it won't translate
+    # split the not_spanish part with \n
+    # join in a string
+    # translate
+    # combine again translated with spanish
+    # add the phrase "Texto traducido automáticamente desde el Alemán:"
+
+    specs = specs.replace(' El artículo puede mostrar un deterioro ... ', '').replace('(en caso de ... ','')
+
+    phrase_to_add_german  = "Texto traducido automáticamente del Alemán:\n\n"
+    phrase_to_add_italian = "Texto traducido automáticamente del Italiano:\n\n"
+    phrase_to_add_english = "Texto traducido automáticamente del Inglés:\n\n"
+    phrase_to_add_french  = "Texto traducido automáticamente del Francés:\n\n"
+    
+    if 'Estado: ' in specs:
+        splitted = specs.split('\n')
+        text_to_translate    = splitted[2:]
+        already_spanish_text = splitted[:1]
+
+        joined_to_translate = "\n".join(text_to_translate)
+        joined_spanish      = "\n".join(already_spanish_text)
+
+        r = nlp_translate(joined_to_translate)
+    else:
+        r = nlp_translate(specs)
+
+    translated, origin_lan = r
+    # print(translated) 
+
+    # avoid error 'joined_spanish' doesn't exist
+    if 'joined_spanish' not in locals():
+        joined_spanish = '' 
+
+    if origin_lan   == 'en':
+        combined = phrase_to_add_english + joined_spanish + "\n" + translated
+    elif origin_lan == 'fr':
+        combined = phrase_to_add_french + joined_spanish + "\n" + translated
+    elif origin_lan == 'de' or origin_lan == 'no':
+        combined = phrase_to_add_german + joined_spanish + "\n" + translated
+    elif origin_lan == 'it':
+        combined = phrase_to_add_italian + joined_spanish + "\n" + translated
+    
+    else: #for spanish 'es' and other languages
+        combined = joined_spanish + "\n" + translated
+    
+    return combined
+
 
 def get_ebay_vendor_notes(ebay_prod_specs):
     #vendor notes are OFTEN in the 2º place of the list prod_specs. Get that, if "Notas del vendedor in list", translate and return
-
     try:
-        vendor_notes = ebay_prod_specs.split('\n')[0]
-        translated_notes=deepl_translate(vendor_notes)
+        vendor_notes     = ebay_prod_specs.split('\n')[0]
+        translated_notes = nlp_translate(vendor_notes)
         return translated_notes
 
         # for item in ebay_prod_specs:
@@ -517,7 +650,7 @@ def get_ebay_vendor_notes(ebay_prod_specs):
         
     except Exception as e:
         print('exception in get_ebay_vendor_notes',e)
-        return 'this item does not have Vendor Notes at that location or don\t have any notes at all'
+        return None
 
 
 def write_to_excel(data_to_dump, FILTER_OUTPUT):
@@ -528,14 +661,11 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     query =         data_to_dump.get('query') 
     ebay_title=     data_to_dump.get('ebay_title')     
     prod_state =    data_to_dump.get('prod_state')
-    # prod_db_category=data_to_dump.get('prod_db_category')
-    # prod_brand =    data_to_dump.get('prod_brand')
+    target_category=data_to_dump.get('target_category')
     ebay_price =    data_to_dump.get('ebay_price')
-    ebay_shipping_time = data_to_dump.get('ebay_shipping_time')
     ebay_prod_id =  data_to_dump.get('ebay_prod_id')
     ebay_category = data_to_dump.get('ebay_category')
     ebay_prod_description =     data_to_dump.get('ebay_prod_description')
-    target_category=data_to_dump.get('target_category')
     target_attr_2 = data_to_dump.get('target_attr_2')
     ebay_price =    data_to_dump.get('ebay_price')
     ebay_shipping_price = data_to_dump.get('ebay_shipping_price')
@@ -547,15 +677,17 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     target_attr_1 = data_to_dump.get('target_attr_1')
     ebay_pics     = data_to_dump.get('pictures')
     ebay_total_price=data_to_dump.get('ebay_total_price')
-    ebay_vendor_notes=data_to_dump.get('ebay_vendor_notes')
+    # to compare prices more easily write an integer
+    # ebay_vendor_notes=data_to_dump.get('ebay_vendor_notes')
     target_prod_state=data_to_dump.get('target_prod_state')
     detected_color=data_to_dump.get('detected_color')
     warranty    =data_to_dump.get('warranty')
     available_colors  =data_to_dump.get('available_colors')
     subtitle  =data_to_dump.get('subtitle')
     target_model  =data_to_dump.get('target_model')
-
-
+    # prod_db_category=data_to_dump.get('prod_db_category')
+    # ebay_shipping_time = data_to_dump.get('ebay_shipping_time') #using wp_shipping time instead
+    # prod_brand =    data_to_dump.get('prod_brand')
 
     last_row = ws.max_row + 1
 
@@ -563,7 +695,6 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     ws.cell(row=last_row, column= EBAY_TITLE_COL,value=     ebay_title)
     ws.cell(row=last_row, column= EBAY_PROD_STATE_COL,value=prod_state)
     ws.cell(row=last_row, column= EBAY_PRICE_COL,value=     ebay_price)
-    ws.cell(row=last_row, column= EBAY_SHIPPING_TIME_COL,value=ebay_shipping_time)
     ws.cell(row=last_row, column= EBAY_PROD_ID_COL,value=   ebay_prod_id)
     ws.cell(row=last_row, column= EBAY_CATEGORY_COL,value=  ebay_category)
     ws.cell(row=last_row, column= EBAY_PROD_DESCRIPTION_COL,value= ebay_prod_description)
@@ -579,7 +710,7 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     ws.cell(row=last_row, column= WP_SHIPPING_TIME_COL,value=  wp_shipping_time)
     ws.cell(row=last_row, column= TARGET_ATTR_1_COL,value=     target_attr_1)
     ws.cell(row=last_row, column= EBAY_TOTAL_PRICE_COL,value=  ebay_total_price)
-    ws.cell(row=last_row, column= EBAY_VENDOR_NOTES_COL,value= ebay_vendor_notes)
+    # ws.cell(row=last_row, column= EBAY_VENDOR_NOTES_COL,value= ebay_vendor_notes)
     ws.cell(row=last_row, column= TARGET_PROD_STATE_COL,value= target_prod_state)
     ws.cell(row=last_row, column= EBAY_SELLER_VOTES_COL,value= seller_votes)
     ws.cell(row=last_row, column= DETECTED_COLOR_COL ,value= detected_color)
@@ -587,8 +718,10 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     ws.cell(row=last_row, column= AVAILABLE_COLORS_COL ,value= available_colors)
     ws.cell(row=last_row, column= SUBTITLE_COL ,value= subtitle)
     ws.cell(row=last_row, column= MODEL_COL ,value= target_model)
+    # ws.cell(row=last_row, column= EBAY_SHIPPING_TIME_COL,value=ebay_shipping_time)
 
     wb.save(OUTPUT_FILE)
+    # print(f'written to excel item {ebay_title}')
 
 def get_textfrom_html(ebay_prod_description):
     from bs4 import BeautifulSoup
@@ -598,6 +731,100 @@ def get_textfrom_html(ebay_prod_description):
     except Exception as e:
         print(f'in get_textfrom_html(): {e}')
         traceback.print_exc()
+
+# delete text, convert from str to int
+def process_shipping_price(ebay_shipping_price):
+   
+    try:
+        # used to debug
+        original = ebay_shipping_price 
+
+        if 'GRATIS' in ebay_shipping_price or 'gratis' in ebay_shipping_price:
+            ebay_shipping_price = 0
+            return ebay_shipping_price
+        
+        try:
+            ebay_shipping_price = ebay_shipping_price.replace('EUR','').replace('GBP','').replace('USD','').replace(',','.').replace('aprox.','').replace('(','').replace(')','').replace('de gastos de envío','').strip()
+            ebay_shipping_price = float(ebay_shipping_price)
+        except Exception as e:
+            print(f'Exception with ebay shipping price: original: {original}\nprocessed: <{ebay_shipping_price}>\nError: {e}')
+            return 'error processing shipping price'
+        
+        try:
+            if 'Rápido y gratis' in ebay_shipping_price:
+                ebay_shipping_price = 0                
+        except Exception as e:
+            #print(e)
+            pass
+        
+        try:
+            if 'gratis' in ebay_shipping_price.lower():
+                ebay_shipping_price = 0
+        except:
+            pass
+            
+        return ebay_shipping_price
+    
+    except Exception as e:
+        print(e)
+        traceback.print_exc
+
+#clean price and convert to float
+def process_price(ebay_price):
+
+    try:
+        #in the case of a price with comma like "1.102,95 EUR"
+        if ('.') in ebay_price and (',') in ebay_price: 
+            # print("detected!!!", ebay_price)
+            ebay_price = ebay_price.split(',')[0]
+            ebay_price = ebay_price.replace('.','')
+            ebay_price = float(ebay_price)
+
+        else: #if its a number like  "516,95 EUR"
+            ebay_price = ebay_price.replace('EUR','').replace(',','.').replace('c/u','').replace(' ','').strip()
+            ebay_price = float(ebay_price)
+
+        return ebay_price
+
+    except Exception as e:
+        print(f'error in process_price(): {e}')
+        return 'price error'
+
+def get_subtitle(raw_subtitle):
+    
+    if raw_subtitle:
+        subtitle, origin_lan = nlp_translate(raw_subtitle)
+    else:
+        subtitle = ''
+
+    return subtitle
+
+def get_seller_votes(seller_votes):
+    if seller_votes:
+        try:
+            seller_votes = int(seller_votes)
+        except Exception as e:
+            print(f'exception in int(seller_votes): {e}')
+            traceback.print_exc()
+            seller_votes = 100 #to get this prod pass the filter
+    else: #if for some reason it didn't get seller_votes, put it in 100
+        seller_votes = 100 #above of the limit to pass the votes filter 
+    
+    return seller_votes
+
+
+def get_prod_description(ebay_prod_description):
+    #sometimes descriptio is short, only text and helpful. Other times is an iframe full of stuff. Ignore when full
+    if len(ebay_prod_description) > 1200:
+        ebay_prod_description = 'Too long'
+    else:
+        ebay_prod_description = get_textfrom_html(ebay_prod_description)
+    
+    return ebay_prod_description
+
+
+### End definitions ###
+
 
 #make a copy in logs_folder
 copy_move_file(OUTPUT_FILE, LOGS_FOLDER)
@@ -617,15 +844,19 @@ clean_excel(OUTPUT_FILE)
     #write from list to excel
 
 filtered_list = []
+current_prod = 0
 with open(INPUT_FILE, encoding='utf8') as json_file:
     scrapper_data = json.load(json_file)
-    
 
-    for item in scrapper_data:        #print(item)
-        ## JSON IN DESUSE, USING CSV NOW
+    for item in scrapper_data:        
+        
+        print(f'prod processed: {current_prod} of {len(scrapper_data)}')
+        current_prod += 1
+
         # variables to filter:
         variable_prod =   item[EBAY_VARIABLE_PROD_NAME]
-        seller_votes=int(item[EBAY_SELLER_VOTES_NAME])
+        # ebay_reviews       =item[EBAY_REVIEWS_NAME]
+        # ebay_category =   item[EBAY_CATEGORY_NAME]
         payment_methods = item[EBAY_PAYMENT_NAME]
         prod_state =      item[EBAY_PROD_STATE_NAME]
         sold_out_text =   str(item[EBAY_PROD_SOLD_OUT_NAME])
@@ -637,206 +868,115 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
         target_attr_2 =   item[TARGET_ATTR_2_NAME]
         ebay_pics     =   item[EBAY_PICS_URLS]
         ebay_vendor_name   =item[EBAY_VENDOR_NAME]
-        ebay_reviews       =item[EBAY_REVIEWS_NAME]
         ebay_import_taxes  =item[EBAY_IMPORT_TAXES_NAME]
         target_model       =item[TARGET_MODEL_NAME]
         target_prod_state  =item[TARGET_PROD_STATE]
         query =           item[EBAY_QUERY_NAME]
-        # price =           item[]
         ebay_shipping_time = item[EBAY_SHIPPING_TIME]
         ebay_returns =    item[EBAY_RETURNS_NAME]
         ebay_prod_id =    item[EBAY_ID_NAME]
-        ebay_prod_url =   item[EBAY_PROD_URL_NAME]
-        ebay_category =   item[EBAY_CATEGORY_NAME]
+        ebay_prod_url=    item[EBAY_PROD_URL_NAME]
         ebay_subtitle   = item[EBAY_SUBTITLE]
-        available_colors =item[AVAILABLE_COLORS_NAME]
+        available_colors=item[AVAILABLE_COLORS_NAME]
         ebay_iframe_url = item[EBAY_IFRAME]
-        ebay_prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
+
+        raw_subtitle =   item[SUBTITLE_NAME]
+        subtitle = get_subtitle(raw_subtitle)
+        
+        raw_seller_votes =    item[EBAY_SELLER_VOTES_NAME]
+        seller_votes = get_seller_votes(raw_seller_votes)
+
         ebay_prod_specs = item[EBAY_PROD_SPECS_NAME]
-        subtitle = item[SUBTITLE_NAME]
-
-        if area_served == None: area_served='not result'
-
-        ebay_title =     item[EBAY_TITLE_NAME]
-        ebay_title = deepl_translate(ebay_title)
+        ebay_prod_specs = translate_specs(ebay_prod_specs)
         
-        
-        #SAVING TIME TOTEST, UNCOMENT 
-        # ebay_prod_specs= deepl_translate(ebay_prod_specs, target_language='ES')
+        raw_ebay_prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
+        ebay_prod_description = get_prod_description(raw_ebay_prod_description)
 
-        #sometimes descriptio is short, only text and helpful. Other times is an iframe full of stuff. Ignore when full
-        if len(ebay_prod_description) > 1200:
-            ebay_prod_description = 'Too long'
-        else:
-            ebay_prod_description = get_textfrom_html(ebay_prod_description)
+        ebay_title =  item[EBAY_TITLE_NAME]
+        ebay_title, origin_lan = nlp_translate(ebay_title)
+        
 
         warranty  = detect_warranty(ebay_subtitle, ebay_prod_description)
-
         ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
-
-        detected_color = color_detector(ebay_title)
+        detected_color   = color_detector(ebay_title)
+        
+        if area_served == None: area_served='not result'
+        
         #cash converters includes color in specs
         if ebay_vendor_name == 'cashconverters_es':
             detected_color = color_detector(ebay_prod_specs)
         
-        # ebay_vendor_notes= 'test'
-
-
-
-# with open(INPUT_FILE, encoding='utf-8') as csv_file:
-# filtered_list = []
-# with open(INPUT_FILE, encoding='ISO-8859-1') as csv_file:
-#     reader = csv.reader(csv_file, delimiter=',')
-#     next(reader) # 1º 
-#     next(reader) #and 2º rows
-#     for row in reader:
-        
-#         # print(row)
-   
-#         #READING CSV ROW COLUMNS
-#         variable_prod =   row[EBAY_VARIABLE_PROD_NAME]
-#         seller_votes= row[EBAY_SELLER_VOTES_NAME]
-#         seller_votes = int(seller_votes)
-#         payment_methods = row[EBAY_PAYMENT_NAME]
-#         prod_state =      row[EBAY_PROD_STATE_NAME]
-#         # sold_out_text =   str(row[EBAY_PROD_SOLD_OUT_NAME])
-#         sold_out_text =   row[EBAY_PROD_SOLD_OUT_NAME]
-#         ebay_price =      row[EBAY_PRICE_NAME]
-#         ebay_shipping_price =  row[EBAY_SHIPPING_PRICE]
-#         area_served =     row[EBAY_SERVED_AREA_NAME]
-#         target_category = row[TARGET_CATEGORY_NAME]
-#         target_attr_1 =   row[TARGET_ATTR_1_NAME]
-#         target_attr_2 =   row[TARGET_ATTR_2_NAME]
-#         ebay_pics     =   row[EBAY_PICS_URLS]
-
-#         #not included yet DELETE THIS COMMENT WHEN DONE
-#         ebay_vendor_name   =row[EBAY_VENDOR_NAME]
-#         ebay_reviews       =row[EBAY_REVIEWS_NAME]
-#         ebay_import_taxes  =row[EBAY_IMPORT_TAXES_NAME]
-#         target_model       =row[TARGET_MODEL_NAME]
-#         target_prod_state  =row[TARGET_PROD_STATE]
-        
-#         #variables need to filter:
-#         ebay_title =           row[EBAY_TITLE_NAME]
-#         # price =           row[]
-#         query =           row[EBAY_QUERY_NAME]
-#         ebay_shipping_time = row[EBAY_SHIPPING_TIME]
-#         ebay_returns =    row[EBAY_RETURNS_NAME]
-#         ebay_prod_id =    row[EBAY_ID_NAME]
-#         ebay_prod_url =   row[EBAY_PROD_URL_NAME]
-#         ebay_category =   row[EBAY_CATEGORY_NAME]
-#         ebay_prod_specs = row[EBAY_PROD_SPECS_NAME]
-#         # ebay_prod_description = row[EBAY_PROD_DESCRIPTION_NAME]
-
-#         #1º use the specs_list to find vendor_notes inside, then convert prod_specs to a str to save it in excel
-#         # ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
-#         ebay_vendor_notes= 'test'
-
-#         #excel can't save a list, convert to str
-#         ebay_prod_specs = str(ebay_prod_specs)
-
-
-        # later to re-convert to string use:
-        # take the string from the excel: excel_string = ws.cell(row=1, column=1).value
-        #list_again = excel_string.replace(']','').split('[')
-        
-        # print(
-        #     'variable_prod :',      variable_prod,
-        #     'seller_votes :', seller_votes,
-        #     'payment_methods :',    payment_methods,
-        #     'prod_state :',         prod_state,
-        #     'sold_out_text :',      sold_out_text,
-        #     'ebay_price :',         ebay_price,
-        #     'ebay_shipping_price :',ebay_shipping_price,
-        #     'area_served :',        area_served,
-        #     'target_category :',    target_category,
-        # )
-        
-        #this is the filter, only prods that meet the requierments can pass through
+        #if item is variable write to sheet2
         if variable_prod != None: #avoid product if it's a variable prod
-            # print("this item is variable",item['title'])
-            continue
-        elif  seller_votes < 30: #if very little sells
-            # print('not enough votes',item['title'])
-            continue
-        elif 'PayPal' not in payment_methods:
-            # print('not payment',item['title'])
-            continue
-        elif 'Visa' not in payment_methods:
-            # print('not payment',item['title'])
-            continue
-        elif 'Para desguace' in prod_state: #if the prod is broken
-            # print('broken item',item['title'])
+            print("this item is variable",item['title'])
+            # write to another file or sheet ?
+            # write_to_excel(data_to_dump, OUTPUT_FILE, 'variables')
             continue
         elif '[]' not in sold_out_text : # if the product is NOT sold out it's an empty list
-            # print('prod sold out',item['title'])
+            print('prod sold out',item['title'])
+            continue
+        elif  seller_votes < 30: #if very little sells
+            print(f'not enough votes, current votes: {seller_votes}')
+            continue
+        elif 'PayPal' not in payment_methods or 'Visa' not in payment_methods:
+            print('not payment',item['title'], f'payment_methods: {payment_methods} \n')
+            continue
+        elif 'Para desguace' in prod_state: #if the prod is broken
+            print('broken item',item['title'])
             continue
         elif ebay_price == '':
-            # print('no price',item['title'])
+            print('no price',item['title'])
             continue
         elif ebay_shipping_price == '':
-            # print('not shipping price ',item['title'])
+            print('not shipping price ',item['title'])
+            continue
+        elif ebay_shipping_price == 'local pick up':
+            print(f'this prod has local pick up, hence no shipping: {ebay_prod_url}')
             continue
         elif 'Solo recogida local' in area_served:
-            # print('only local pick up no shipping prod: ',item['title'])
+            print('only local pick up no shipping prod: ',item['title'])
             continue
-
-        #apply re_price function
-        #clean price and convert to float
-        #in the case of a price with comma like "1.102,95 EUR"
-        if ('.') in ebay_price and (',') in ebay_price: 
-            # print("detected!!!", ebay_price)
-            ebay_price = ebay_price.split(',')[0]
-            ebay_price = ebay_price.replace('.','')
-            ebay_price = float(ebay_price)
-
-        else: #if its a number like  "516,95 EUR"
-            ebay_price = ebay_price.replace('EUR','').replace(',','.').replace('c/u','').replace(' ','').strip()
-            ebay_price = float(ebay_price)
+        
 
 ###################### THIS GOES IN SCRAPPER#################
-        try:
-            ebay_shipping_price = ebay_shipping_price.replace('EUR','').replace(',','.').strip()
-            ebay_shipping_price = float(ebay_shipping_price)
-        except Exception as e:
-            print(f'this ebaby id has shipping {ebay_prod_id}')
-            pass
-        try:
-            if 'Rápido y gratis' in ebay_shipping_price:
-                ebay_shipping_price = 0                
-        except Exception as e:
-            #print(e)
-            pass
-        try:
-            if 'gratis' in ebay_shipping_price.lower():
-                ebay_shipping_price = 0
-        except:
-            pass
+
+        if ebay_import_taxes:
+            # ebay_import_taxes = ebay_import_taxes.replace('£','').replace('US $','')
+            if '£' in ebay_import_taxes:
+                amount = ebay_import_taxes.replace('£','')
+                ebay_import_taxes = funcs_currency.convert_amount_toEUR(amount, 'GBP')
+            elif 'US $' in ebay_import_taxes:
+                amount = ebay_import_taxes.replace('US $','')
+                ebay_import_taxes = funcs_currency.convert_amount_toEUR(amount, 'USD')
+        else:
+            ebay_import_taxes = 0
+
+        # this puts the price to 0, to correct you have to search in console the str: "error in ebay shipping_price ebay_id" 
+        ebay_shipping_price = process_shipping_price(ebay_shipping_price)
+        if ebay_shipping_price == 'error processing shipping price':
+            print(f'error in ebay shipping_price ebay_id: {ebay_prod_id}')
+            ebay_shipping_price = 0
         
-        ################################### this goes here
+        #if error price to 0, search in console Error in ebay_price, product with ebay_id:
+        ebay_price = process_price(ebay_price)
+        if ebay_price == 'price error':
+            print(f'Error in ebay_price, product with ebay_id: { ebay_prod_id}')
+            ebay_price = 0
         
-        ebay_total_price = ebay_price + ebay_shipping_price
+        ebay_total_price = ebay_price + ebay_shipping_price + ebay_import_taxes
         wp_price = apply_wp_price(ebay_total_price)
 
         #check if there're pictures for this prod in pics_db
         pictures = check_pics_db(target_model, target_attr_2)
         # if any pic in pics_db, use ebay's pictures
         if pictures == 'there aren\'t any pics in pics_db for this item':
-            logging.info(f'there aren\'t any pics in pics_db for this item <{target_model} {target_attr_2}>')
-            print(f'going to search this ebay_id {ebay_prod_id}')
+            # logging.info(f'there aren\'t any pics in pics_db for this item <{target_model} {target_attr_2}>')
+            # print(f'going to search this ebay_id {ebay_prod_id}')
             pictures = make_ebay_pics_urls(ebay_pics)
             # pictures = get_ebay_pictures(ebay_prod_id)# through api
         
-        #to avoid error can't convert to excel, convert from list to string
-        pics_string = ''
-        for pic in pictures:
-            pic = str(pic)
-            pics_string += pic
-            pics_string += ','
-        # print(f'this is the string_pics {pics_string}')
-        pictures = pics_string
 
-        wp_shipping_time = get_wp_shipping_time(ebay_shipping_time)
+        wp_shipping_time = get_wp_shipping_time(ebay_shipping_time) 
 
         #apply our category based on Ebay's category
         # prod_db_category = apply_category(ebay_category)
@@ -851,11 +991,11 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             # 'brand_prod_filter':prod_brand,
             'ebay_price':ebay_price,
             'ebay_shipping_price':ebay_shipping_price,
-            'ebay_shipping_time':ebay_shipping_time,
+            # 'ebay_shipping_time':ebay_shipping_time,
             'ebay_returns':ebay_returns,
             'ebay_prod_id':ebay_prod_id,
             'ebay_prod_url':ebay_prod_url,
-            'ebay_category':ebay_category,
+            # 'ebay_category':ebay_category,
             'ebay_prod_specs':ebay_prod_specs,
             'ebay_prod_description':ebay_prod_description,
             'wp_price':wp_price,
@@ -871,7 +1011,8 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             'detected_color':detected_color,
             'warranty':warranty,
             'available_colors':available_colors,
-            'target_model':target_model
+            'target_model':target_model,
+            'subtitle':subtitle
         }
 
         filtered_list.append(data_to_dump)
@@ -884,9 +1025,8 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             # # new_file.write(",")
             # # new_file.close()
 
-
         write_to_excel(data_to_dump, OUTPUT_FILE)
-        print('written to excel')
+
 
 ################################
 #csv.field_size_limit(sys.maxint)

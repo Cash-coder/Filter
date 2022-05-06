@@ -1,3 +1,6 @@
+#si no tiene specs, copiar specs de item mismo modelo y attr1, attr2
+
+import traceback
 from openpyxl import load_workbook
 
 #read filter t1 output, search for column with checkmark
@@ -5,6 +8,7 @@ from openpyxl import load_workbook
 #put the web pics id's
     # search for item model + attr1
     # manually check if they're the right color, mark that prod as reviewed
+    #if no web_pics and ebay_pics == weird_ delete that row
     # write to an excel
 #same for ad pics
 #move file to logs
@@ -32,7 +36,8 @@ DETECTED_COLOR_COL    = 6
 DETECTED_WARRANTY_COL = 7
 EBAY_TOTAL_PRICE_COL  = 8
 CHECKMARK             = 9
-EBAY_VENDOR_NOTES_COL = 10
+# EBAY_VENDOR_NOTES_COL = 10
+TARGET_ATTR_1_COL     = 10 
 SUBTITLE_COL          = 11
 # EBAY_PROD_DESCRIPTION_LINK = 7 #description already included in prod_url
 EBAY_PROD_URL_COL     = 12
@@ -49,7 +54,7 @@ PICTURES_COL       = 19
 EBAY_PROD_ID_COL   = 20
 EBAY_CATEGORY_COL  = 21
 TARGET_CATEGORY_COL= 22
-TARGET_ATTR_1_COL  = 23
+                #   =23 #  NOT USED, AVAILABLE
 # TARGET_ATTR_2_COL  = 24 #in phones now I don't target for colors
 EBAY_PROD_SPECS_COL= 25
 EBAY_VENDOR_NAME_COL=26
@@ -120,10 +125,13 @@ def clean_excel(EXCEL_FILE):
     import logging
 
     wb = load_workbook(EXCEL_FILE)
-    ws = wb.active
+    ws1 = wb['Sheet1']
+    ws2 = wb['Sheet2']
 
     #starting at 2, delete all rows
-    ws.delete_rows(3, ws.max_row+1)
+    ws1.delete_rows(3, ws1.max_row+1)
+    wb.save(EXCEL_FILE)
+    ws2.delete_rows(3, ws2.max_row+1)
     wb.save(EXCEL_FILE)
 
     logging.info(f'cleaned set_prod_db  and gaps_file to begin fresh writing')
@@ -131,9 +139,11 @@ def clean_excel(EXCEL_FILE):
 # copy_move_file(FILTER_OUTPUT_PATH, LOGS_FOLDER)
 # clean_excel(FILTER_OUTPUT_PATH)
 
+not_found = 0
 #get pics using model and color (target_attr)
 def get_pics_ids(file, target_model, target_attr):
     from openpyxl import load_workbook
+    global not_found
 
     #row by row, if item and attr1 = target, return pics, else, return not found
     #select between read web_pics_db or ads_pics_db
@@ -150,6 +160,8 @@ def get_pics_ids(file, target_model, target_attr):
     wb = load_workbook(WB)
     ws = wb[WS]
     
+    all_pics  = [] 
+    pics_list = [] # create to avoid Error when pic is not present ?
     for row in ws.iter_rows(min_row=2):
         row_number = row[0].row
         # print(f'this is row N {row_number}')
@@ -160,15 +172,56 @@ def get_pics_ids(file, target_model, target_attr):
         pic_model = pic_model.strip() 
         pic_attr = pic_attr.strip() 
 
-        # print(f'excel_pic_model: {pic_model}, excel_pic_attr: {pic_attr}')
+        if pic_model == None or pic_attr == None:
+            continue
 
         #if model == target_model, color == color: get those pics // using in instead of == to allow variations in colors: negro,gris,grafito
+        #THIS IS OLD FUNC, WHEN NEED TO MATCH MODEL AND COLOR, NEW FUNC NEED MATCH ONLY MODEL
         if target_model == pic_model and target_attr in pic_attr:
-            # print(f'match! ')
-            pics_list = get_pics_by_row(file, row_number)
-            return pics_list
+            if file == 'web_pics':
+                pics_list = get_pics_by_row(file, row_number)
+                if 'not found' in pics_list[0]:
+                    continue
+                for pic in pics_list:
+                    all_pics.append(pic)
+                print(f'2 len {len(pics_list)}')
+            
+            #func designed ony to walla, to get all ad pics
+            elif file == 'ads_pics':
+                pics_list = get_walla_ad_pics(target_model)
         else:
+            # print(f'excel_pic_model: {pic_model}, excel_pic_attr: {pic_attr}')
             continue
+
+    # if len(pics_list) > 0:
+    if pics_list:
+        print('final return pics_list')
+        return pics_list
+    else:
+        not_found += 1
+        print(f'not found this model <{target_model}> with this attribute <{target_attr}> not_found {not_found}')
+        return 'not found'
+    
+def get_walla_ad_pics(target_model):
+    
+    wb = load_workbook(ADS_PICS_DB)
+    ws = wb[ADS_PICS_SHEET]
+
+    all_pics = []
+    for row in ws.iter_rows():
+        rown = row[0].row
+        excel_model = row[0].value
+
+        if excel_model == target_model:
+            pic1 = ws.cell(row=rown, column=3).value
+            pic2 = ws.cell(row=rown, column=4).value
+            all_pics.append(pic1)
+            all_pics.append(pic2)
+            # pics = get_pics_by_row('ads_pics', rown)
+            # for pic in pics:
+                # all_pics.append(pics)
+    return all_pics
+
     
 #get the pics using the row n. mind that's the same func for web_pics and ads_pics, be carefull with changes
 def get_pics_by_row(file, row_number):
@@ -184,17 +237,34 @@ def get_pics_by_row(file, row_number):
     wb = load_workbook(WB)
     ws = wb[WS]
 
-    pics_list = []
-    n = 3
-    for _ in range(12): #15 pics as max
-        pic_url = ws.cell(row=row_number, column=n).value
-        if pic_url != None and pic_url != '':
-            pics_list.append(pic_url)
-            n += 1
-        else:
-            break
+    #for web_pics
+    if file == 'web_pics':
+        pics_list = []
+        n = 3
+        for _ in range(12): #15 pics as max
+            pic_url = ws.cell(row=row_number, column=n).value
+            if pic_url != None and pic_url != '':
+                pics_list.append(pic_url)
+                n += 1
+            else:
+                break
+    #for ads_pics, I need to return a string with 2 paths, not a list, because later it makes a list of lists
+    elif file == 'ads_pics':
+        n = 3
+        pics_list = ''
+        for _ in range(12): #15 pics as max
+            pic_url = ws.cell(row=row_number, column=n).value
+            if pic_url != None or pic_url != '' or pic_url != ' ':
+                #string instead of list
+                pics_list = pics_list +','+ pic_url
+                n += 1
+            else:
+                break        
+
+    print(f'file {file}, row {row_number} founded {len(pics_list)} pics')
 
     if len(pics_list) > 0:
+        print(f'pics_listn {len(pics_list)} returning pics_list {pics_list}')
         #web_pics need format [{"id":"link"}, ...]
         # FORMATTED IN WOO_API, HERE RETURN ID, ID, ID
         # if file == 'web_pics':
@@ -233,9 +303,11 @@ def get_short_description(ebay_returns, warranty):
 
     # split string by spaces, if chunk is digit, put it in list
     number_ofdays = [int(s) for s in ebay_returns.split(' ') if s.isdigit()]
-
-    # Truth table: 8 combinations days/warranty, days/no warranty, no days/warranty
+    
+    # Truth table: 4 combinations: days/warranty, days/no warranty, no days/warranty, no days/no warranty
     if len(number_ofdays) > 0:
+        number_ofdays = str(number_ofdays[0]) #from list to string
+        
         if warranty != None: # return and warranty
             short_des = f'Este artículo dispone de un período de prueba de {number_ofdays} días. \nAdemás disfruta de una garantía completa de {warranty}.\nDespachamos Envíos en 24h'
         elif warranty == None: # return, no warranty
@@ -247,7 +319,6 @@ def get_short_description(ebay_returns, warranty):
             short_des = f'Despachamos Envíos en 24h'            
 
     return short_des
-
 
 
 #write to filter_output_t2, sheet1 if data is ok, sheet2 = data to review by human
@@ -284,16 +355,16 @@ def recordto_t2(sheet, data_torecord):
 
     last_row_s1 = ws.max_row + 1
 
-    print(ebay_pics)
-
     # if they exists, unpack ads_pics into 2 variable strings, easier to handle later
+    #now I record all in the same cell, ad_pics is a string with all pics separated by comma
     if ads_pics:
-        ad1 = str(ads_pics[0])
-        ad2 = str(ads_pics[1])
-
-        ws.cell(row=last_row_s1, column= ADS_PICS2_1_COL,value=  ad1)
-        ws.cell(row=last_row_s1, column= ADS_PICS2_2_COL,value=  ad2)
-
+        print(f'these are ads_pics {ads_pics}')
+        # ad1 = str(ads_pics[0])
+        # ad2 = str(ads_pics[1])
+        # ws.cell(row=last_row_s1, column= ADS_PICS2_1_COL,value=  ad1)
+        # ws.cell(row=last_row_s1, column= ADS_PICS2_2_COL,value=  ad2)
+        string_pics = ','.join(ads_pics)
+        ws.cell(row=last_row_s1, column= ADS_PICS2_1_COL,value=  string_pics)
 
     ws.cell(row=last_row_s1, column= TARGET_CATEGORY2_COL,value=  target_category)
     ws.cell(row=last_row_s1, column= COMPLETE_QUERY2_COL,value=  query)
@@ -319,6 +390,7 @@ def recordto_t2(sheet, data_torecord):
     # ws.cell(row=last_row_s1, column= VARIABLE_PROD2_COL,value=  ) #variable prods ignored for now
 
     wb.save(FILTER_T2_OUTPUT)
+    # print('SAVED FILE')
 
 
 #read filter t1 output, search for column with checkmark
@@ -345,112 +417,125 @@ def run():
     current_row = START_ROW
     total_rows = len(ws['A'])
     print(total_rows)
-    for row in range(total_rows):
+    for row in range(total_rows)[1:60]:
+        try:
+            print(f'processed row {row}')
 
-        query =  ws.cell(row=current_row, column= QUERY_COL).value
-        # print(query)
+            query =  ws.cell(row=current_row, column= QUERY_COL).value
+            # print(query)
 
+            #ignore rows without checkmark
+            check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
+            check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
+            if check_mark == None : 
+                current_row += 1
+                continue 
 
-        #ignore rows without checkmark
-        check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
-        check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
-        if check_mark == None : 
-            current_row += 1
-            continue 
+            print('----------------------')
 
-        print('------------------')
+            query =         ws.cell(row=current_row, column= QUERY_COL).value
+            ebay_title =    ws.cell(row=current_row, column= EBAY_TITLE_COL).value
+            ebay_prod_state =    ws.cell(row=current_row, column= EBAY_PROD_STATE_COL).value
+            target_prod_state =     ws.cell(row=current_row, column= TARGET_PROD_STATE_COL).value
+            ebay_price =    ws.cell(row=current_row, column= EBAY_PRICE_COL).value
+            ebay_shipping_time =    ws.cell(row=current_row, column= EBAY_SHIPPING_TIME_COL).value
+            ebay_prod_id =  ws.cell(row=current_row, column= EBAY_PROD_ID_COL).value
+            # ebay_category = ws.cell(row=current_row, column= EBAY_CATEGORY_COL).value
+            ebay_prod_description =  ws.cell(row=current_row, column= EBAY_PROD_DESCRIPTION_COL).value
+            ebay_pics =         ws.cell(row=current_row, column= PICTURES_COL).value
+            target_category =   ws.cell(row=current_row, column= TARGET_CATEGORY_COL).value
+            target_attr_2 =     ws.cell(row=current_row, column= DETECTED_COLOR_COL).value
+            ebay_price =        ws.cell(row=current_row, column= EBAY_PRICE_COL).value
+            ebay_shipping_price =   ws.cell(row=current_row, column= EBAY_SHIPPING_PRICE_COL).value
+            ebay_returns =      ws.cell(row=current_row, column= EBAY_RETURNS_COL).value
+            ebay_prod_url =     ws.cell(row=current_row, column= EBAY_PROD_URL_COL).value
+            ebay_prod_specs =   ws.cell(row=current_row, column= EBAY_PROD_SPECS_COL).value
+            wp_price =          ws.cell(row=current_row, column= WP_PRICE_COL).value
+            # wp_shipping_time =  ws.cell(row=current_row, column= WP_SHIPPING_TIME_COL).value
+            target_attr_1 =     ws.cell(row=current_row, column= TARGET_ATTR_1_COL).value
+            ebay_total_price =  ws.cell(row=current_row, column= EBAY_TOTAL_PRICE_COL).value
+            # ebay_vendor_notes =     ws.cell(row=current_row, column= EBAY_VENDOR_NOTES_COL).value
+            # seller_votes =   ws.cell(row=current_row, column= EBAY_SELLER_VOTES_COL).value
+            detected_color = ws.cell(row=current_row, column= DETECTED_COLOR_COL ).value
+            warranty =       ws.cell(row=current_row, column= DETECTED_WARRANTY_COL ).value
+            # subtitle =       ws.cell(row=current_row, column= SUBTITLE_COL).value
+            available_colors =  ws.cell(row=current_row, column= AVAILABLE_COLORS_COL).value
+            available_colors = str(available_colors) # commas makes it tupple
+            target_model =   ws.cell(row=current_row, column= MODEL_COL).value
+            target_model = str(target_model).lower()
+            
+            print(f'target_model: {target_model},target_attr_1: {target_attr_1} target_attr_2 {target_attr_2}') 
 
-        query =         ws.cell(row=current_row, column= QUERY_COL).value
-        ebay_title =    ws.cell(row=current_row, column= EBAY_TITLE_COL).value
-        ebay_prod_state =    ws.cell(row=current_row, column= EBAY_PROD_STATE_COL).value
-        target_prod_state =     ws.cell(row=current_row, column= TARGET_PROD_STATE_COL).value
-        ebay_price =    ws.cell(row=current_row, column= EBAY_PRICE_COL).value
-        ebay_shipping_time =    ws.cell(row=current_row, column= EBAY_SHIPPING_TIME_COL).value
-        ebay_prod_id =  ws.cell(row=current_row, column= EBAY_PROD_ID_COL).value
-        # ebay_category = ws.cell(row=current_row, column= EBAY_CATEGORY_COL).value
-        ebay_prod_description =  ws.cell(row=current_row, column= EBAY_PROD_DESCRIPTION_COL).value
-        ebay_pics =         ws.cell(row=current_row, column= PICTURES_COL).value
-        target_category =   ws.cell(row=current_row, column= TARGET_CATEGORY_COL).value
-        target_attr_2 =     ws.cell(row=current_row, column= DETECTED_COLOR_COL).value
-        ebay_price =        ws.cell(row=current_row, column= EBAY_PRICE_COL).value
-        ebay_shipping_price =   ws.cell(row=current_row, column= EBAY_SHIPPING_PRICE_COL).value
-        ebay_returns =      ws.cell(row=current_row, column= EBAY_RETURNS_COL).value
-        ebay_prod_url =     ws.cell(row=current_row, column= EBAY_PROD_URL_COL).value
-        ebay_prod_specs =   ws.cell(row=current_row, column= EBAY_PROD_SPECS_COL).value
-        wp_price =          ws.cell(row=current_row, column= WP_PRICE_COL).value
-        # wp_shipping_time =  ws.cell(row=current_row, column= WP_SHIPPING_TIME_COL).value
-        target_attr_1 =     ws.cell(row=current_row, column= TARGET_ATTR_1_COL).value
-        ebay_total_price =  ws.cell(row=current_row, column= EBAY_TOTAL_PRICE_COL).value
-        # ebay_vendor_notes =     ws.cell(row=current_row, column= EBAY_VENDOR_NOTES_COL).value
-        # seller_votes =   ws.cell(row=current_row, column= EBAY_SELLER_VOTES_COL).value
-        detected_color = ws.cell(row=current_row, column= DETECTED_COLOR_COL ).value
-        warranty =       ws.cell(row=current_row, column= DETECTED_WARRANTY_COL ).value
-        # subtitle =       ws.cell(row=current_row, column= SUBTITLE_COL).value
-        available_colors =  ws.cell(row=current_row, column= AVAILABLE_COLORS_COL).value
-        available_colors = str(available_colors) # commas makes it tupple
-        target_model =   ws.cell(row=current_row, column= MODEL_COL).value
-        target_model = str(target_model).lower()
-         
-        print(f'target_model: {target_model},target_attr_1: {target_attr_1} target_attr_2 {target_attr_2}') 
+            current_row += 1 #to get to the next row in the next iteration
+            
+            prod_state = compare_states(target_prod_state, ebay_prod_state)
+            
+            #get ad pics paths
+            web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
+            # print(f'web_pics: {web_pics}')
+            if 'None' in web_pics or web_pics == 'not found':
+                #check if ebay_pics are normal, not like 's-l500.jpg,s-l500.jpg,s-....'
+                #if ebay_pics are ok, use them as web_pics
+                #else, continue, ignore that prod
 
-        current_row += 1 #to get to the next row in the next iteration
-        
-        prod_state = compare_states(target_prod_state, ebay_prod_state)
-        
-        #get ad pics paths
-        web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
-        # print(f'web_pics: {web_pics}')
-        if web_pics == 'not found':
-            print('not web pics')
-        else:
-            print(f'web_pics {web_pics}')
-        
-        ads_pics = get_pics_ids('ads_pics',target_model, target_attr_2)
+                if 's-l500.jpg,s-l500.jpg,' not in ebay_pics:
+                    web_pics = ebay_pics
+                else:
+                    print(f'not web pics for this source prod {ebay_prod_url}')
+                    continue
+            else:
+                print(f'web_pics {web_pics}')
+            
+            ads_pics = get_pics_ids('ads_pics',target_model, target_attr_2)
 
-        wp_short_description = get_short_description(ebay_returns, warranty)
+            wp_short_description = get_short_description(ebay_returns, warranty)
 
-        #need to know woo_id before upload to prods_db. 
+            #need to know woo_id before upload to prods_db. 
 
-        #create FILTER_T2_OUTPUT.xlsx
-        # sheet1 = prods to upload adn get woo_id
-        # sheet2 = prods with something missing, pics, warranty, etc...        
+            #create FILTER_T2_OUTPUT.xlsx
+            # sheet1 = prods to upload adn get woo_id
+            # sheet2 = prods with something missing, pics, warranty, etc...        
 
-        data = {
-            'query':query,
-            'target_prod_state':target_prod_state,
-            'ebay_price':ebay_price,
-            'ebay_shipping_time':ebay_shipping_time,
-            'ebay_prod_id':ebay_prod_id,
-            'target_category':target_category,
-            'target_attr_1':target_attr_1,
-            'target_attr_2':target_attr_2,
-            'ebay_total_price':ebay_total_price,
-            'ebay_price':ebay_price,
-            'ebay_shipping_price':ebay_shipping_price,
-            'ebay_returns':ebay_returns,
-            'ebay_prod_url':ebay_prod_url,
-            'wp_price':wp_price,
-            'detected_color':detected_color,
-            'warranty':warranty,
-            'target_model':target_model,
-            'web_pics':web_pics,
-            'ads_pics':ads_pics,
-            'ebay_title':ebay_title,
-            'ebay_pics':ebay_pics,
-            'ebay_prod_specs':ebay_prod_specs,
-            'wp_short_description':wp_short_description
-            #woo_id is included after wp_importer.py
-            }        
+            data = {
+                'query':query,
+                'target_prod_state':target_prod_state,
+                'ebay_price':ebay_price,
+                'ebay_shipping_time':ebay_shipping_time,
+                'ebay_prod_id':ebay_prod_id,
+                'target_category':target_category,
+                'target_attr_1':target_attr_1,
+                'target_attr_2':target_attr_2,
+                'ebay_total_price':ebay_total_price,
+                'ebay_price':ebay_price,
+                'ebay_shipping_price':ebay_shipping_price,
+                'ebay_returns':ebay_returns,
+                'ebay_prod_url':ebay_prod_url,
+                'wp_price':wp_price,
+                'detected_color':detected_color,
+                'warranty':warranty,
+                'target_model':target_model,
+                'web_pics':web_pics,
+                'ads_pics':ads_pics,
+                'ebay_title':ebay_title,
+                'ebay_pics':ebay_pics,
+                'ebay_prod_specs':ebay_prod_specs,
+                'wp_short_description':wp_short_description
+                #woo_id is included after wp_importer.py
+                }        
 
-        #record to FILTER_T2_OUTPUT 
-        #if some issue, record to sheet2, if is all right record to sheet1
-        if ads_pics == 'not found' or ads_pics == None or web_pics == 'not found' or web_pics == None or warranty == None:
-            recordto_t2('Sheet2', data)
-        else:
-            recordto_t2('Sheet1', data)
+            #record to FILTER_T2_OUTPUT 
+            #if some issue, record to sheet2, if is all right record to sheet1
+            if ads_pics == 'not found' or ads_pics == None or web_pics == 'not found' or web_pics == None:
+                recordto_t2('Sheet2', data)
+                print('not found pics = written data to Sheet2')
+            else:
+                recordto_t2('Sheet1', data)
 
-        #output FILTER_T2_OUTPUT sheet wp
-
+            #output FILTER_T2_OUTPUT sheet wp
+    
+        except Exception as e:
+            print(f'error in run(): {e}')
+            traceback.print_exc()
 
 
 if __name__ == '__main__':

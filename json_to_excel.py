@@ -1,5 +1,5 @@
 
-JSON_FILE = 'new.json'
+JSON_FILE = 'crawler_output.json'
 # JSON_FILE = 'short_scrapper_output.json'
 EXCEL_FILE = 'scrapper_output.xlsx'
 
