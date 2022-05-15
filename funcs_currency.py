@@ -12,6 +12,8 @@ def delete_file(file_path):
 def update_rates_file():
     from time import sleep
 
+    print('updating $€ rate file...')
+
     # request GBP 
     # sleep to avoid exceed api time speed
     # request USD

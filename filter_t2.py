@@ -417,7 +417,7 @@ def run():
     current_row = START_ROW
     total_rows = len(ws['A'])
     print(total_rows)
-    for row in range(total_rows)[1:60]:
+    for row in range(total_rows):
         try:
             print(f'processed row {row}')
 
@@ -425,7 +425,6 @@ def run():
             # print(query)
 
             #ignore rows without checkmark
-            check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
             check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
             if check_mark == None : 
                 current_row += 1
@@ -470,21 +469,23 @@ def run():
             
             prod_state = compare_states(target_prod_state, ebay_prod_state)
             
-            #get ad pics paths
-            web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
+            # this makes that all pics used in web are ebay pics and not the saved ones
+            web_pics = ebay_pics
+            # web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
             # print(f'web_pics: {web_pics}')
-            if 'None' in web_pics or web_pics == 'not found':
-                #check if ebay_pics are normal, not like 's-l500.jpg,s-l500.jpg,s-....'
-                #if ebay_pics are ok, use them as web_pics
-                #else, continue, ignore that prod
+            # if 'None' in web_pics or web_pics == 'not found':
+            #     #check if ebay_pics are normal, not like 's-l500.jpg,s-l500.jpg,s-....'
+            #     #if ebay_pics are ok, use them as web_pics
+            #     #else, continue, ignore that prod
 
-                if 's-l500.jpg,s-l500.jpg,' not in ebay_pics:
-                    web_pics = ebay_pics
-                else:
-                    print(f'not web pics for this source prod {ebay_prod_url}')
-                    continue
-            else:
-                print(f'web_pics {web_pics}')
+            #     #
+            #     if 's-l500.jpg,s-l500.jpg,' not in ebay_pics:
+            #         web_pics = ebay_pics
+            #     else:
+            #         print(f'not web pics for this source prod {ebay_prod_url}')
+            #         continue
+            # else:
+            #     print(f'web_pics {web_pics}')
             
             ads_pics = get_pics_ids('ads_pics',target_model, target_attr_2)
 
@@ -524,12 +525,14 @@ def run():
                 }        
 
             #record to FILTER_T2_OUTPUT 
+            recordto_t2('Sheet1', data)
+            ## old, this recorded to sheet1 if all ok and sheet2 if some issue
             #if some issue, record to sheet2, if is all right record to sheet1
-            if ads_pics == 'not found' or ads_pics == None or web_pics == 'not found' or web_pics == None:
-                recordto_t2('Sheet2', data)
-                print('not found pics = written data to Sheet2')
-            else:
-                recordto_t2('Sheet1', data)
+            # if ads_pics == 'not found' or ads_pics == None or web_pics == 'not found' or web_pics == None:
+            #     recordto_t2('Sheet2', data)
+            #     print('not found pics = written data to Sheet2')
+            # else:
+            #     recordto_t2('Sheet1', data)
 
             #output FILTER_T2_OUTPUT sheet wp
     

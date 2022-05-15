@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO)
 
 WEB_PICS_DB  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
 INPUT_FILE   = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
-OUTPUT_FILE  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx" 
+OUTPUT_FILE  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT_CHANNEL2.xlsx" 
 LOGS_FOLDER  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\logs_folder"
 
 # WARNING!! THIS FILE PATH HAS ALSO TO BE SET/UPDATED IN funcs_currency.py
@@ -69,7 +69,7 @@ TARGET_PROD_STATE    = 'query_prod_state'
 EBAY_PICS_URLS       = 'ebay_pics'
 EBAY_SUBTITLE        = 'subtitle'
 EBAY_IFRAME          = 'iframe_description_url'
-mean_price_NAME= 'mean_price'
+AVAILABLE_COLORS_NAME= 'available_colors'
 SUBTITLE_NAME        = 'subtitle'
 
 # #CSV ROWS N, FILTER INPUT, CRAWLER OUTPUT
@@ -106,7 +106,7 @@ QUERY_COL             = 1
 TARGET_PROD_STATE_COL = 2
 EBAY_PROD_STATE_COL   = 3
 EBAY_TITLE_COL        = 4
-mean_price_COL  = 5
+AVAILABLE_COLORS_COL  = 5
 DETECTED_COLOR_COL    = 6
 DETECTED_WARRANTY_COL = 7
 EBAY_TOTAL_PRICE_COL  = 8
@@ -138,91 +138,51 @@ EBAY_PROD_DESCRIPTION_COL = 28
 MODEL_COL           =29
 
 
-
-def apply_wp_price(price, target_category):
-    import random
-
-    input_price = price # to log
+def apply_wp_price(ebay_total_price):
     
-    # add benefit based on category
-    benefit = get_benefit(target_category)
-    price += benefit
+    if int(ebay_total_price) >= 1000:
+        margin = 0.025
+    elif int(ebay_total_price) in range(800,1000):
+        margin = 0.030 # 3.5%  
+    elif int(ebay_total_price) in range(600,800):
+        margin = 0.035 # 4%  
+    elif int(ebay_total_price) in range(400,600):
+        margin = 0.045 # 5%  
+    elif int(ebay_total_price) in range(300,400):
+        margin = 0.055 # 6%  
+    elif int(ebay_total_price) in range(200,300):
+        margin = 0.065 # 8%  
+    elif int(ebay_total_price) in range(100,200):
+        margin = 0.10 # 10%  
+    elif int(ebay_total_price) in range(50,100):
+        margin = 0.12 # 12%  
+    elif int(ebay_total_price) in range(20,50):
+        margin = 0.30 # 30%  
+    elif int(ebay_total_price) in range(0,20):
+        margin = 0.5 # 50%
 
-    # add taxes
-    tax_rate = benefit * 0.21 #21%
-    price += tax_rate
-
-    # add stripe fee
-    stripe_fee_rate = 0.014 # 1.4%
-    stripe_fee = stripe_fee_rate * price
-    price += stripe_fee
+    stripe_fee = 0.014 # 1.4%
+    benefit = ebay_total_price * margin
+    taxes = benefit * 0.21 #21%
+    
+    #not 100% correct, stripe charges in the final amount
+    stripe_fee_n =  (ebay_total_price + benefit + taxes) * stripe_fee
+    final_price = ebay_total_price + benefit + taxes + stripe_fee_n
+    
+    #apply the coupon code used in the ads
+    coupon_code_discount = 0.05 #5%
+    final_price = final_price * coupon_code_discount + final_price
 
     #add attractive termination to the price: 55 -> 54,45
     terminator_options = [0.14,0.23,0.24,0.34,0.49,0.57,0.83,0.97]
     terminator = random.choice(terminator_options)
-    final_price_decorated = price + terminator
+    final_price_decorated = final_price + terminator
     #delete unwanted decimals
     final_price_decorated = round(final_price_decorated,2)
     # print(ebay_total_price,'\t', 'f_price_deco',final_price_decorated, '\t',"margin:",margin,'\t','benefit', benefit)
-    print(f'input_price:{input_price} output_price: {final_price_decorated} \t benefit: {benefit}, taxes {tax_rate}, stripe_fee_n {stripe_fee}')
+    print(f'ebay_total_price: {ebay_total_price} \t benefit: {benefit}, taxes {taxes}, stripe_fee_n {stripe_fee_n}, finalP: {final_price_decorated} ')
 
     return final_price_decorated
-
-# apply benefit margin based on category. 12€ smartphones, 4€ videogames
-def get_benefit(target_category):
-    # videogames doesn't exist yet, only consoles and videogames, we have to split it
-    if target_category == 'videogames':
-        benefit = 4
-    else:
-        benefit = 12
-    return benefit
-
-# now using a simpler cheaper margin version
-# def apply_wp_price(ebay_total_price):
-    
-#     if int(ebay_total_price) >= 1000:
-#         margin = 0.025
-#     elif int(ebay_total_price) in range(800,1000):
-#         margin = 0.030 # 3.5%  
-#     elif int(ebay_total_price) in range(600,800):
-#         margin = 0.035 # 4%  
-#     elif int(ebay_total_price) in range(400,600):
-#         margin = 0.045 # 5%  
-#     elif int(ebay_total_price) in range(300,400):
-#         margin = 0.055 # 6%  
-#     elif int(ebay_total_price) in range(200,300):
-#         margin = 0.065 # 8%  
-#     elif int(ebay_total_price) in range(100,200):
-#         margin = 0.10 # 10%  
-#     elif int(ebay_total_price) in range(50,100):
-#         margin = 0.12 # 12%  
-#     elif int(ebay_total_price) in range(20,50):
-#         margin = 0.30 # 30%  
-#     elif int(ebay_total_price) in range(0,20):
-#         margin = 0.5 # 50%
-
-#     stripe_fee = 0.014 # 1.4%
-#     benefit = ebay_total_price * margin
-#     taxes = benefit * 0.21 #21%
-    
-#     #not 100% correct, stripe charges in the final amount
-#     stripe_fee_n =  (ebay_total_price + benefit + taxes) * stripe_fee
-#     final_price = ebay_total_price + benefit + taxes + stripe_fee_n
-    
-#     #apply the coupon code used in the ads
-#     coupon_code_discount = 0.05 #5%
-#     final_price = final_price * coupon_code_discount + final_price
-
-#     #add attractive termination to the price: 55 -> 54,45
-#     terminator_options = [0.14,0.23,0.24,0.34,0.49,0.57,0.83,0.97]
-#     terminator = random.choice(terminator_options)
-#     final_price_decorated = final_price + terminator
-#     #delete unwanted decimals
-#     final_price_decorated = round(final_price_decorated,2)
-#     # print(ebay_total_price,'\t', 'f_price_deco',final_price_decorated, '\t',"margin:",margin,'\t','benefit', benefit)
-#     print(f'ebay_total_price: {ebay_total_price} \t benefit: {benefit}, taxes {taxes}, stripe_fee_n {stripe_fee_n}, finalP: {final_price_decorated} ')
-
-#     return final_price_decorated
 
 #ebay API, in desuse
 def get_ebay_pictures(ebay_prod_id):
@@ -720,7 +680,7 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     target_prod_state=data_to_dump.get('target_prod_state')
     detected_color=data_to_dump.get('detected_color')
     warranty    =data_to_dump.get('warranty')
-    mean_price  =data_to_dump.get('mean_price')
+    available_colors  =data_to_dump.get('available_colors')
     subtitle  =data_to_dump.get('subtitle')
     target_model  =data_to_dump.get('target_model')
     # prod_db_category=data_to_dump.get('prod_db_category')
@@ -753,7 +713,7 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     ws.cell(row=last_row, column= EBAY_SELLER_VOTES_COL,value= seller_votes)
     ws.cell(row=last_row, column= DETECTED_COLOR_COL ,value= detected_color)
     ws.cell(row=last_row, column= DETECTED_WARRANTY_COL ,value= warranty)
-    ws.cell(row=last_row, column= mean_price_COL ,value= mean_price)
+    ws.cell(row=last_row, column= AVAILABLE_COLORS_COL ,value= available_colors)
     ws.cell(row=last_row, column= SUBTITLE_COL ,value= subtitle)
     ws.cell(row=last_row, column= MODEL_COL ,value= target_model)
     # ws.cell(row=last_row, column= EBAY_SHIPPING_TIME_COL,value=ebay_shipping_time)
@@ -924,7 +884,7 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
         ebay_prod_id =    item[EBAY_ID_NAME]
         ebay_prod_url=    item[EBAY_PROD_URL_NAME]
         ebay_subtitle   = item[EBAY_SUBTITLE]
-        mean_price=item[mean_price_NAME]
+        available_colors=item[AVAILABLE_COLORS_NAME]
         ebay_iframe_url = item[EBAY_IFRAME]
 
         raw_subtitle =   item[SUBTITLE_NAME]
@@ -1011,7 +971,7 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             ebay_price = 0
         
         ebay_total_price = ebay_price + ebay_shipping_price + ebay_import_taxes
-        wp_price = apply_wp_price(ebay_total_price, target_category)
+        wp_price = apply_wp_price(ebay_total_price)
 
         #check if there're pictures for this prod in pics_db
         pictures = check_pics_db(target_model, target_attr_2)
@@ -1057,7 +1017,7 @@ with open(INPUT_FILE, encoding='utf8') as json_file:
             'seller_votes':seller_votes,
             'detected_color':detected_color,
             'warranty':warranty,
-            'mean_price':mean_price,
+            'available_colors':available_colors,
             'target_model':target_model,
             'subtitle':subtitle
         }
