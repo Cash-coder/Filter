@@ -1,17 +1,18 @@
-import sys
+# python filter resume_index channel
+# python filter.py -    -c2
+# python filter.py -455 -c2
+# arg1 = resume_index in case of crush restart at index x
+# arg2 = c2 = channel_2 use input and output files of channel 2
+
+import filter_median_price
+import time
 import json
-import csv
 from os import extsep
-import random
 from re import T
-import string
 import traceback
 from ebaysdk.finding import Connection
 from ebaysdk.shopping import Connection as Shopping
 from bs4 import BeautifulSoup
-from datetime import date
-import datetime
-import calendar 
 import logging
 from openpyxl import load_workbook
 from authentications import DEEPL_AUTH_KEY
@@ -19,8 +20,15 @@ from authentications import DEEPL_AUTH_KEY
 # py functions files
 import funcs_currency
 
+
+
 # read crawler json output 
-# for prod in file:
+
+# USING FUNCS FROM (filter_median_lower_price_funcs.py), BUT IMPORTED AS FUNCTIONS AND EXECUTED HERE
+# get list prods_filtered_by_median_low
+
+# for prod in scrapper:
+    # if prod_price < median_low for that model + attr: continue
     # get all prod data
     # apply funcs (wp_price, pics, detect warranty, color, GBP/USD to EUR  ...)
         # chek pics_db, if we have pics for that prod, use those pics
@@ -28,12 +36,15 @@ import funcs_currency
     # write to output file FILTER_OUTPUT.xlsx
 
 
+
 logging.basicConfig(level=logging.INFO)
 
-WEB_PICS_DB  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
-INPUT_FILE   = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
-OUTPUT_FILE  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx" 
-LOGS_FOLDER  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\logs_folder"
+WEB_PICS_DB    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
+INPUT_FILE     = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
+INPUT_FILE_C2  = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output_C2.json"
+OUTPUT_FILE    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx" 
+OUTPUT_FILE_C2 = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT_CHANNEL2.xlsx" 
+LOGS_FOLDER    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\logs_folder"
 
 # WARNING!! THIS FILE PATH HAS ALSO TO BE SET/UPDATED IN funcs_currency.py
 CURRENCY_EQUIVALENCES_FILE = r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\filter\exchange_to_EUR.txt'
@@ -138,7 +149,6 @@ EBAY_PROD_DESCRIPTION_COL = 28
 MODEL_COL           =29
 
 
-
 def apply_wp_price(price, target_category):
     import random
 
@@ -164,7 +174,7 @@ def apply_wp_price(price, target_category):
     #delete unwanted decimals
     final_price_decorated = round(final_price_decorated,2)
     # print(ebay_total_price,'\t', 'f_price_deco',final_price_decorated, '\t',"margin:",margin,'\t','benefit', benefit)
-    print(f'input_price:{input_price} output_price: {final_price_decorated} \t benefit: {benefit}, taxes {tax_rate}, stripe_fee_n {stripe_fee}')
+    # print(f'input_price:{input_price} output_price: {final_price_decorated} \t benefit: {benefit}, taxes {tax_rate}, stripe_fee_n {stripe_fee}')
 
     return final_price_decorated
 
@@ -287,7 +297,7 @@ def make_ebay_pics_urls(url_list):
 
 #I have to update, now we've 2 db's
 #in this case will be web_pics_db
-def check_pics_db(target_model, target_attr_1):
+def check_pics_db(target_model, target_attr):
     from openpyxl import load_workbook
 
     #for row in web_pics_file:
@@ -310,7 +320,7 @@ def check_pics_db(target_model, target_attr_1):
         pic_attr    = ws.cell(row=row_number, column=2).value
         # print('----------', pic_model, pic_attr)
 
-        if target_model == pic_model and target_attr_2 == pic_attr:
+        if target_model == pic_model and target_attr == pic_attr:
             n = 3
             for _ in range(15): #15 pics as max
                 pic_url = ws.cell(row=row_number, column=n).value
@@ -691,9 +701,9 @@ def get_ebay_vendor_notes(ebay_prod_specs):
         return None
 
 
-def write_to_excel(data_to_dump, FILTER_OUTPUT):
+def write_to_excel(data_to_dump, selected_output_file):
 
-    wb = load_workbook(FILTER_OUTPUT)
+    wb = load_workbook(selected_output_file)
     ws = wb.active 
 
     query =         data_to_dump.get('query') 
@@ -723,6 +733,7 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     mean_price  =data_to_dump.get('mean_price')
     subtitle  =data_to_dump.get('subtitle')
     target_model  =data_to_dump.get('target_model')
+    seller_votes  =data_to_dump.get('seller_votes')
     # prod_db_category=data_to_dump.get('prod_db_category')
     # ebay_shipping_time = data_to_dump.get('ebay_shipping_time') #using wp_shipping time instead
     # prod_brand =    data_to_dump.get('prod_brand')
@@ -758,8 +769,9 @@ def write_to_excel(data_to_dump, FILTER_OUTPUT):
     ws.cell(row=last_row, column= MODEL_COL ,value= target_model)
     # ws.cell(row=last_row, column= EBAY_SHIPPING_TIME_COL,value=ebay_shipping_time)
 
-    wb.save(OUTPUT_FILE)
+    wb.save(selected_output_file)
     # print(f'written to excel item {ebay_title}')
+
 
 def get_textfrom_html(ebay_prod_description):
     from bs4 import BeautifulSoup
@@ -773,6 +785,10 @@ def get_textfrom_html(ebay_prod_description):
 # delete text, convert from str to int
 def process_shipping_price(ebay_shipping_price):
    
+    if ebay_shipping_price == []:
+        ebay_shipping_price = 0
+        return ebay_shipping_price
+
     try:
         # used to debug
         original = ebay_shipping_price 
@@ -801,11 +817,13 @@ def process_shipping_price(ebay_shipping_price):
         except:
             pass
             
+            
         return ebay_shipping_price
     
     except Exception as e:
         print(e)
         traceback.print_exc
+        return 'error processing shipping price'
 
 #clean price and convert to float
 def process_price(ebay_price):
@@ -860,233 +878,330 @@ def get_prod_description(ebay_prod_description):
     
     return ebay_prod_description
 
+# if the seller is known for having spanish text, avoid translation = faster filter
+def check_if_spanish_seller(ebay_vendor_name):
+    identified_spanish_sellers = [
+        'cashconverters_es'
+    ]
+
+    if ebay_vendor_name in identified_spanish_sellers:
+        return True
+    else:
+         return False
+
+
+
+def get_args():
+    import sys
+        # first arg  resume filtering in case of crush, specify as a parameter when calling from terminal
+    # you have to manually save the output file because this will remove all old entries. So it will start from index x, but all processed data will be removed
+    # or you can find the file in the logs folder
+    
+    # arg1 = resume_index in case of crush restart at index x
+    try:
+        first_arg = sys.argv[1]
+        if first_arg != '-':
+            resume_from_index_n = int(first_arg)
+        else:
+            resume_from_index_n = 0
+    except IndexError: # if not specified start from the beginning
+        resume_from_index_n = 0
+
+    # arg2 = c2 = channel_2 use input and output files of channel 2
+    try:
+        second_arg = sys.argv[2]
+        if second_arg == '-c2':
+            selected_input_file  = INPUT_FILE_C2
+            selected_output_file = OUTPUT_FILE_C2
+    except IndexError:
+        selected_input_file  = INPUT_FILE
+        selected_output_file = OUTPUT_FILE
+    
+    #print selecteds to check by the user
+    input_folder1  = selected_input_file.split('\\')[-1]
+    output_folder2 = selected_output_file.split('\\')[-1]
+    print(f'\nselected_input_file: {input_folder1}\nselected_output_file: {output_folder2}\n resume_from_index_n: {resume_from_index_n}\n')
+
+    return selected_input_file, selected_output_file, resume_from_index_n
+
+def clean_title(ebay_title):
+    
+    title = ebay_title.replace('AT&T','')
+
+    return title
+
+
+def process_import_taxes(ebay_import_taxes):
+    # ebay_import_taxes = ebay_import_taxes.replace('£','').replace('US $','')
+    if '£' in ebay_import_taxes:
+        amount = ebay_import_taxes.replace('£','')
+        ebay_import_taxes = funcs_currency.convert_amount_toEUR(amount, 'GBP')
+    elif 'US $' in ebay_import_taxes:
+        amount = ebay_import_taxes.replace('US $','')
+        ebay_import_taxes = funcs_currency.convert_amount_toEUR(amount, 'USD')
+    else:
+        ebay_import_taxes = 0
+    
+    return ebay_import_taxes
+
 
 ### End definitions ###
 
 
-#make a copy in logs_folder
-copy_move_file(OUTPUT_FILE, LOGS_FOLDER)
-#delete old entries to start fresh
-clean_excel(OUTPUT_FILE)
 
-#for item in data:
-    #if item is broken,
-    #if item seller votes < x
-    #other filter rules...
-    #items that pass filter:
-        #try to use pics from pics_db, if no pics for that prod, use ebay's pics
-        #get_wp_price
-        #get_shipping_time
-        #...
-        #append to list
-    #write from list to excel
+def run():
 
-filtered_list = []
-with open(INPUT_FILE, encoding='utf8') as json_file:
-    scrapper_data = json.load(json_file)
+    # taking data from parameters passed when called the program
+    selected_input_file, \
+    selected_output_file, \
+    resume_from_index_n = get_args()
 
-    # resume filtering in case of crush, specify as a parameter when calling from terminal
-    # you have to manually save the output file because this will remove all old entries. So it will start from index x, but all processed data will be removed
-    # or you can find the file in the logs folder
-    try:
-        resume_from_index_n = int(sys.argv[1])
-    except IndexError: # if not specified start from the beginning
-        resume_from_index_n = 0
 
-    print(f'starting process from inde: {resume_from_index_n}')
-    for item in scrapper_data[resume_from_index_n:]:        
-        
-        # here resume_indez is used to print the current position of the process: item 5 of 10
-        print(f'prod processed: {resume_from_index_n} of {len(scrapper_data)}')
-        resume_from_index_n += 1
+    #make a copy in logs_folder
+    copy_move_file(selected_output_file, LOGS_FOLDER)
+    #delete old entries to start fresh
+    clean_excel(selected_output_file)
 
-        # variables to filter:
-        variable_prod =   item[EBAY_VARIABLE_PROD_NAME]
-        # ebay_reviews       =item[EBAY_REVIEWS_NAME]
-        # ebay_category =   item[EBAY_CATEGORY_NAME]
-        payment_methods = item[EBAY_PAYMENT_NAME]
-        prod_state =      item[EBAY_PROD_STATE_NAME]
-        sold_out_text =   str(item[EBAY_PROD_SOLD_OUT_NAME])
-        ebay_price =      item[EBAY_PRICE_NAME]
-        ebay_shipping_price =  item[EBAY_SHIPPING_PRICE]
-        area_served =     item[EBAY_SERVED_AREA_NAME]
-        target_category = item[TARGET_CATEGORY_NAME]
-        target_attr_1 =   item[TARGET_ATTR_1_NAME]
-        target_attr_2 =   item[TARGET_ATTR_2_NAME]
-        ebay_pics     =   item[EBAY_PICS_URLS]
-        ebay_vendor_name   =item[EBAY_VENDOR_NAME]
-        ebay_import_taxes  =item[EBAY_IMPORT_TAXES_NAME]
-        target_model       =item[TARGET_MODEL_NAME]
-        target_prod_state  =item[TARGET_PROD_STATE]
-        query =           item[EBAY_QUERY_NAME]
-        ebay_shipping_time = item[EBAY_SHIPPING_TIME]
-        ebay_returns =    item[EBAY_RETURNS_NAME]
-        ebay_prod_id =    item[EBAY_ID_NAME]
-        ebay_prod_url=    item[EBAY_PROD_URL_NAME]
-        ebay_subtitle   = item[EBAY_SUBTITLE]
-        mean_price=item[mean_price_NAME]
-        ebay_iframe_url = item[EBAY_IFRAME]
+    #for item in data:
+        #if item is broken,
+        #if item seller votes < x
+        #other filter rules...
+        #items that pass filter:
+            #try to use pics from pics_db, if no pics for that prod, use ebay's pics
+            #get_wp_price
+            #get_shipping_time
+            #...
+            #append to list
+        #write from list to excel
 
-        raw_subtitle =   item[SUBTITLE_NAME]
-        subtitle = get_subtitle(raw_subtitle)
-        
-        raw_seller_votes =    item[EBAY_SELLER_VOTES_NAME]
-        seller_votes = get_seller_votes(raw_seller_votes)
 
-        ebay_prod_specs = item[EBAY_PROD_SPECS_NAME]
-        ebay_prod_specs = translate_specs(ebay_prod_specs)
-        
-        raw_ebay_prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
-        ebay_prod_description = get_prod_description(raw_ebay_prod_description)
+    
+    filtered_list = []
+    # changed from median low to median high: now if product price is below median high we accept it.
+    # median_low_price_list = filter_median_lower_price.run()
+    median_high_price_list = filter_median_price.run(selected_input_file)
+    # [print(item) for item in median_low_price_list]
 
-        ebay_title =  item[EBAY_TITLE_NAME]
-        ebay_title, origin_lan = nlp_translate(ebay_title)
-        
+    with open(selected_input_file, encoding='utf8') as json_file:
+        scrapper_data = json.load(json_file)
 
-        warranty  = detect_warranty(ebay_subtitle, ebay_prod_description)
-        ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
-        detected_color   = color_detector(ebay_title)
-        
-        if area_served == None: area_served='not result'
-        
-        #cash converters includes color in specs
-        if ebay_vendor_name == 'cashconverters_es':
-            detected_color = color_detector(ebay_prod_specs)
-        
-        #if item is variable write to sheet2
-        if variable_prod != None: #avoid product if it's a variable prod
-            print("this item is variable",item['title'])
-            # write to another file or sheet ?
-            # write_to_excel(data_to_dump, OUTPUT_FILE, 'variables')
-            continue
-        elif '[]' not in sold_out_text : # if the product is NOT sold out it's an empty list
-            print('prod sold out',item['title'])
-            continue
-        elif  seller_votes < 30: #if very little sells
-            print(f'not enough votes, current votes: {seller_votes}')
-            continue
-        elif 'PayPal' not in payment_methods or 'Visa' not in payment_methods:
-            print('not payment',item['title'], f'payment_methods: {payment_methods} \n')
-            continue
-        elif 'Para desguace' in prod_state: #if the prod is broken
-            print('broken item',item['title'])
-            continue
-        elif ebay_price == '':
-            print('no price',item['title'])
-            continue
-        elif ebay_shipping_price == '':
-            print('not shipping price ',item['title'])
-            continue
-        elif ebay_shipping_price == 'local pick up':
-            print(f'this prod has local pick up, hence no shipping: {ebay_prod_url}')
-            continue
-        elif 'Solo recogida local' in area_served:
-            print('only local pick up no shipping prod: ',item['title'])
-            continue
-        
+        print(f'starting process from index: {resume_from_index_n}')
+        for item in scrapper_data[resume_from_index_n:]:        
 
-###################### THIS GOES IN SCRAPPER#################
+            # here resume_index is used to print the current position of the process: item 5 of 10
+            print(f'prod processed: {resume_from_index_n} of {len(scrapper_data)} ')
+            resume_from_index_n += 1
 
-        if ebay_import_taxes:
-            # ebay_import_taxes = ebay_import_taxes.replace('£','').replace('US $','')
-            if '£' in ebay_import_taxes:
-                amount = ebay_import_taxes.replace('£','')
-                ebay_import_taxes = funcs_currency.convert_amount_toEUR(amount, 'GBP')
-            elif 'US $' in ebay_import_taxes:
-                amount = ebay_import_taxes.replace('US $','')
-                ebay_import_taxes = funcs_currency.convert_amount_toEUR(amount, 'USD')
-        else:
-            ebay_import_taxes = 0
+            # variables to filter:
+            variable_prod =   item[EBAY_VARIABLE_PROD_NAME]
+            # ebay_reviews       =item[EBAY_REVIEWS_NAME]
+            # ebay_category =   item[EBAY_CATEGORY_NAME]
+            payment_methods = item[EBAY_PAYMENT_NAME]
+            prod_state =      item[EBAY_PROD_STATE_NAME]
+            sold_out_text =   str(item[EBAY_PROD_SOLD_OUT_NAME])
+            ebay_price =      item[EBAY_PRICE_NAME]
+            ebay_shipping_price =  item[EBAY_SHIPPING_PRICE]
+            area_served =     item[EBAY_SERVED_AREA_NAME]
+            target_category = item[TARGET_CATEGORY_NAME]
+            target_attr_1 =   item[TARGET_ATTR_1_NAME]
+            target_attr_2 =   item[TARGET_ATTR_2_NAME]
+            ebay_pics     =   item[EBAY_PICS_URLS]
+            ebay_vendor_name   =item[EBAY_VENDOR_NAME]
+            ebay_import_taxes  =item[EBAY_IMPORT_TAXES_NAME]
+            target_model       =item[TARGET_MODEL_NAME]
+            target_prod_state  =item[TARGET_PROD_STATE]
+            query =           item[EBAY_QUERY_NAME]
+            ebay_shipping_time = item[EBAY_SHIPPING_TIME]
+            ebay_returns =    item[EBAY_RETURNS_NAME]
+            ebay_prod_id =    item[EBAY_ID_NAME]
+            ebay_prod_url=    item[EBAY_PROD_URL_NAME]
+            ebay_subtitle   = item[EBAY_SUBTITLE]
+            mean_price=item[mean_price_NAME]
+            # ebay_iframe_url = item[EBAY_IFRAME]
 
-        # this puts the price to 0, to correct you have to search in console the str: "error in ebay shipping_price ebay_id" 
-        ebay_shipping_price = process_shipping_price(ebay_shipping_price)
-        if ebay_shipping_price == 'error processing shipping price':
-            print(f'error in ebay shipping_price ebay_id: {ebay_prod_id}')
-            ebay_shipping_price = 0
-        
-        #if error price to 0, search in console Error in ebay_price, product with ebay_id:
-        ebay_price = process_price(ebay_price)
-        if ebay_price == 'price error':
-            print(f'Error in ebay_price, product with ebay_id: { ebay_prod_id}')
-            ebay_price = 0
-        
-        ebay_total_price = ebay_price + ebay_shipping_price + ebay_import_taxes
-        wp_price = apply_wp_price(ebay_total_price, target_category)
+            # process prices taxes, shipping, $€ exchange
+            if ebay_import_taxes:
+                ebay_import_taxes = process_import_taxes(ebay_import_taxes)
+            else:
+                ebay_import_taxes = 0
+                
+            # this puts the price to 0, to correct you have to search in console the str: "error in ebay shipping_price ebay_id" 
+            ebay_shipping_price = process_shipping_price(ebay_shipping_price)
+            if ebay_shipping_price == 'error processing shipping price':
+                print(f'error in ebay shipping_price ebay_id: {ebay_prod_id}')
+                ebay_shipping_price = 0
+            
+            #if error price to 0, search in console Error in ebay_price, product with ebay_id:
+            ebay_price = process_price(ebay_price)
+            if ebay_price == 'price error':
+                print(f'Error in ebay_price, product with ebay_id: { ebay_prod_id}')
+                ebay_price = 0
+            
+            ebay_total_price = ebay_price + ebay_shipping_price + ebay_import_taxes
+            wp_price = apply_wp_price(ebay_total_price, target_category)
 
-        #check if there're pictures for this prod in pics_db
-        pictures = check_pics_db(target_model, target_attr_2)
-        # if any pic in pics_db, use ebay's pictures
-        if pictures == 'there aren\'t any pics in pics_db for this item':
-            # logging.info(f'there aren\'t any pics in pics_db for this item <{target_model} {target_attr_2}>')
-            # print(f'going to search this ebay_id {ebay_prod_id}')
+            # filter total price using median_low
+            model_and_attribute = target_model + f' {target_attr_1}'
+            r_median_high_filter = filter_median_price.filter_median_high_price(model_and_attribute, ebay_total_price, median_high_price_list)
+            # if doesn't pass the filter continue
+            if not r_median_high_filter:
+                print('---------continued ')
+                continue
+
+            raw_subtitle =   item[SUBTITLE_NAME]
+            subtitle = get_subtitle(raw_subtitle)
+            
+            raw_seller_votes =    item[EBAY_SELLER_VOTES_NAME]
+            seller_votes = get_seller_votes(raw_seller_votes)
+
+            ebay_prod_specs = item[EBAY_PROD_SPECS_NAME]
+            ebay_title =  item[EBAY_TITLE_NAME]
+            ebay_title = clean_title(ebay_title)
+
+            
+            #i.e: cash converters is always in spanish, no need to translate, identify more spanish sellers to filter faster
+            spanish_seller = check_if_spanish_seller(ebay_vendor_name)
+            if not spanish_seller:
+                ebay_prod_specs        = translate_specs(ebay_prod_specs)
+                ebay_title, origin_lan = nlp_translate(ebay_title)
+
+            raw_ebay_prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
+            ebay_prod_description = get_prod_description(raw_ebay_prod_description)
+
+            warranty  = detect_warranty(ebay_subtitle, ebay_prod_description)
+            ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
+            detected_color   = color_detector(ebay_title)
+            
+            if area_served == None: area_served='not result'
+            
+            #cash converters includes color in specs
+            if ebay_vendor_name == 'cashconverters_es':
+                detected_color = color_detector(ebay_prod_specs)
+            
+            ebay_title_lower = ebay_title.lower()
+            #if item is variable write to sheet2
+            if variable_prod != None: #avoid product if it's a variable prod
+                print("this item is variable",item['title'])
+                # write to another file or sheet ?
+                # write_to_excel(data_to_dump, OUTPUT_FILE, 'variables')
+                continue
+            elif '[]' not in sold_out_text : # if the product is NOT sold out it's an empty list
+                print('prod sold out',item['title'])
+                continue
+            elif  seller_votes < 30: #if very little sells
+                print(f'not enough votes, current votes: {seller_votes}')
+                continue
+            elif 'PayPal' not in payment_methods or 'Visa' not in payment_methods:
+                print('not payment',item['title'], f'payment_methods: {payment_methods} \n')
+                continue
+            elif 'Para desguace' in prod_state: #if the prod is broken
+                print('broken item',item['title'])
+                continue
+            elif ebay_price == '':
+                print('no price',item['title'])
+                continue
+            elif ebay_shipping_price == '':
+                print('not shipping price ',item['title'])
+                continue
+            elif ebay_shipping_price == 'local pick up':
+                print(f'this prod has local pick up, hence no shipping: {ebay_prod_url}')
+                continue
+            elif 'Solo recogida local' in area_served:
+                print('only local pick up no shipping prod: ',item['title'])
+                continue
+            # avoid broken but declared like used, in title they include 'for pieces'
+            elif 'placa madre' in ebay_title_lower or 'placa base' in ebay_title_lower or 'motherboard' in ebay_title_lower or 'logic card' in ebay_title_lower or 'defectuoso' in ebay_title_lower:
+                continue
+            elif 'piezas' in ebay_title_lower or 'parts' in ebay_title_lower:
+                continue
+            # icloud locked notice the white space to differentiate "unlocked" and " locked"
+            elif ' bloqueado' in ebay_title_lower or ' locked' in ebay_title_lower:
+                continue
+            
+
+    ###################### THIS GOES IN SCRAPPER#################
+
+
+            #check if there're pictures for this prod in pics_db
+            # pictures = check_pics_db(target_model, target_attr_2)
+            # if any pic in pics_db, use ebay's pictures
+            # if pictures == 'there aren\'t any pics in pics_db for this item':
+                # logging.info(f'there aren\'t any pics in pics_db for this item <{target_model} {target_attr_2}>')
+                # print(f'going to search this ebay_id {ebay_prod_id}')
             pictures = make_ebay_pics_urls(ebay_pics)
-            # pictures = get_ebay_pictures(ebay_prod_id)# through api
-        
+                # pictures = get_ebay_pictures(ebay_prod_id)# through api
+            
 
-        wp_shipping_time = get_wp_shipping_time(ebay_shipping_time) 
+            wp_shipping_time = get_wp_shipping_time(ebay_shipping_time) 
 
-        #apply our category based on Ebay's category
-        # prod_db_category = apply_category(ebay_category)
-        # prod_brand = apply_prod_brand(ebay_title)
+            #apply our category based on Ebay's category
+            # prod_db_category = apply_category(ebay_category)
+            # prod_brand = apply_prod_brand(ebay_title)
 
-        #print("there are products with wanted characteristics!!")
-        data_to_dump = {
-            'query':query,
-            'ebay_title':ebay_title,
-            'prod_state':prod_state,
-            # 'prod_db_category':prod_db_category,
-            # 'brand_prod_filter':prod_brand,
-            'ebay_price':ebay_price,
-            'ebay_shipping_price':ebay_shipping_price,
-            # 'ebay_shipping_time':ebay_shipping_time,
-            'ebay_returns':ebay_returns,
-            'ebay_prod_id':ebay_prod_id,
-            'ebay_prod_url':ebay_prod_url,
-            # 'ebay_category':ebay_category,
-            'ebay_prod_specs':ebay_prod_specs,
-            'ebay_prod_description':ebay_prod_description,
-            'wp_price':wp_price,
-            'pictures':pictures,
-            'wp_shipping_time':wp_shipping_time,
-            'target_category':target_category,
-            'target_attr_1':target_attr_1,
-            'target_attr_2':target_attr_2,
-            'ebay_total_price':ebay_total_price,
-            'ebay_vendor_notes':ebay_vendor_notes,
-            'target_prod_state':target_prod_state,
-            'seller_votes':seller_votes,
-            'detected_color':detected_color,
-            'warranty':warranty,
-            'mean_price':mean_price,
-            'target_model':target_model,
-            'subtitle':subtitle
-        }
+            #print("there are products with wanted characteristics!!")
+            data_to_dump = {
+                'query':query,
+                'ebay_title':ebay_title,
+                'prod_state':prod_state,
+                # 'prod_db_category':prod_db_category,
+                # 'brand_prod_filter':prod_brand,
+                'ebay_price':ebay_price,
+                'ebay_shipping_price':ebay_shipping_price,
+                # 'ebay_shipping_time':ebay_shipping_time,
+                'ebay_returns':ebay_returns,
+                'ebay_prod_id':ebay_prod_id,
+                'ebay_prod_url':ebay_prod_url,
+                # 'ebay_category':ebay_category,
+                'ebay_prod_specs':ebay_prod_specs,
+                'ebay_prod_description':ebay_prod_description,
+                'wp_price':wp_price,
+                'pictures':pictures,
+                'wp_shipping_time':wp_shipping_time,
+                'target_category':target_category,
+                'target_attr_1':target_attr_1,
+                'target_attr_2':target_attr_2,
+                'ebay_total_price':ebay_total_price,
+                'ebay_vendor_notes':ebay_vendor_notes,
+                'target_prod_state':target_prod_state,
+                'seller_votes':seller_votes,
+                'detected_color':detected_color,
+                'warranty':warranty,
+                'mean_price':mean_price,
+                'target_model':target_model,
+                'subtitle':subtitle
+            }
 
-        filtered_list.append(data_to_dump)
-        #variables I don't need in filtered csv
-        #'payment_methods':payment_methods, sold_out_text,'seller_votes':seller_votes,
-        #area_served,'var_prod':variable_prod
+            filtered_list.append(data_to_dump)
+            #variables I don't need in filtered csv
+            #'payment_methods':payment_methods, sold_out_text,'seller_votes':seller_votes,
+            #area_served,'var_prod':variable_prod
 
-        # with open('filter_output.json','w',) as new_file: #,encoding='utf8')
-            # json.dump(entry, new_file, indent=4)
-            # # new_file.write(",")
-            # # new_file.close()
+            # with open('filter_output.json','w',) as new_file: #,encoding='utf8')
+                # json.dump(entry, new_file, indent=4)
+                # # new_file.write(",")
+                # # new_file.close()
 
-        write_to_excel(data_to_dump, OUTPUT_FILE)
+            write_to_excel(data_to_dump, selected_output_file)
+            
+            t = time.perf_counter()
+            print(f'it took {t} to filter all units')
 
 
-################################
-#csv.field_size_limit(sys.maxint)
-# maxInt = sys.maxsize
+if __name__ == '__main__':
+    run()
 
-# #this is to avoid error while reding row "row character lentgh exceeds maximum"
-# while True:
-#     # decrease the maxInt value by factor 10 
-#     # as long as the OverflowError occurs.
+    ################################
+    #csv.field_size_limit(sys.maxint)
+    # maxInt = sys.maxsize
 
-#     try:
-#         csv.field_size_limit(maxInt)
-#         break
-#     except OverflowError:
-#         maxInt = int(maxInt/10)
-######################
+    # #this is to avoid error while reding row "row character lentgh exceeds maximum"
+    # while True:
+    #     # decrease the maxInt value by factor 10 
+    #     # as long as the OverflowError occurs.
+
+    #     try:
+    #         csv.field_size_limit(maxInt)
+    #         break
+    #     except OverflowError:
+    #         maxInt = int(maxInt/10)
+    ######################

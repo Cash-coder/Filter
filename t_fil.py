@@ -1,22 +1,46 @@
 import sys
 import random
-import json 
+import json
 
 
 # INPUT_FILE = r"crawler_output.json"
 INPUT_FILE     = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\crawler_output.json"
 
-try:
-    resume_from_index_n = sys.argv[1]
-except IndexError:
-    resume_from_index_n = 0
 
+# with open(INPUT_FILE, encoding='utf8') as json_file:
+#     scrapper_data = json.load(json_file)
 
-print(resume_from_index_n)
+#     for item in scrapper_data:
+#         ebay_id = item['ebay_article_id']
+#         # print(ebay_id)
 
+#         if ebay_id == '275310573205':
+#             shipping = item['shipping_price']
+#             print(shipping)
 
+def set_tolerance(input_price):
+    
+    if input_price < 200:
+        tolerance = 0.18
+    elif input_price < 400:
+        tolerance = 0.12
+    elif input_price < 600:
+        tolerance = 0.10
+    elif input_price < 800:
+        tolerance = 0.10
+    elif input_price < 1000:
+        tolerance = 0.07
+    else: 
+        tolerance = 0.05
+   
+    
+    return tolerance
 
-
+p = [150, 240, 280, 350,380,400,450,500,550,600,650,750,800,900,1000,1050, 1100,1150, 1200,1250, 1300, 1350,1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750, 2500]
+for price in p:
+    tolerance = set_tolerance(price)
+    price_with_tolerance = price + (price * tolerance)
+    print(price, '    ',price_with_tolerance)
 
 
 

@@ -195,7 +195,6 @@ def get_pics_ids(file, target_model, target_attr):
 
     # if len(pics_list) > 0:
     if pics_list:
-        print('final return pics_list')
         return pics_list
     else:
         not_found += 1
@@ -358,7 +357,7 @@ def recordto_t2(sheet, data_torecord):
     # if they exists, unpack ads_pics into 2 variable strings, easier to handle later
     #now I record all in the same cell, ad_pics is a string with all pics separated by comma
     if ads_pics:
-        print(f'these are ads_pics {ads_pics}')
+        # print(f'these are ads_pics {ads_pics}')
         # ad1 = str(ads_pics[0])
         # ad2 = str(ads_pics[1])
         # ws.cell(row=last_row_s1, column= ADS_PICS2_1_COL,value=  ad1)
@@ -389,7 +388,8 @@ def recordto_t2(sheet, data_torecord):
     ws.cell(row=last_row_s1, column= WP_SHORT_DESCRIPTION_COL, value=  wp_short_description)
     # ws.cell(row=last_row_s1, column= VARIABLE_PROD2_COL,value=  ) #variable prods ignored for now
 
-    wb.save(FILTER_T2_OUTPUT)
+    # saving only once in run()
+    # wb.save(FILTER_T2_OUTPUT)
     # print('SAVED FILE')
 
 
@@ -467,10 +467,11 @@ def run():
 
             current_row += 1 #to get to the next row in the next iteration
             
-            prod_state = compare_states(target_prod_state, ebay_prod_state)
+            # prod_state = compare_states(target_prod_state, ebay_prod_state)
             
             # this makes that all pics used in web are ebay pics and not the saved ones
-            web_pics = ebay_pics
+            # only 6 pics
+            web_pics = ebay_pics[:6]
             # web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
             # print(f'web_pics: {web_pics}')
             # if 'None' in web_pics or web_pics == 'not found':
@@ -539,6 +540,8 @@ def run():
         except Exception as e:
             print(f'error in run(): {e}')
             traceback.print_exc()
+
+    wb.save(FILTER_T2_OUTPUT)
 
 
 if __name__ == '__main__':
