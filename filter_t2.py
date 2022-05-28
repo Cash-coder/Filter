@@ -15,38 +15,40 @@ from openpyxl import load_workbook
 #clean file for the next round
 
 
-FILTER_OUTPUT1   =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx"
-FILTER_T2_OUTPUT =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_T2_OUTPUT.xlsx"
+FILTER_OUTPUT1   = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT.xlsx"
+FILTER_OUTPUT_C2 = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_OUTPUT_CHANNEL2.xlsx"
+FILTER_T2_OUTPUT = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_T2_OUTPUT.xlsx"
 
 # LOGS_FOLDER    =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\logs_folder"
-WEB_PICS_DB    =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
-WEB_PICS_SHEET ='Sheet4' #where the id's are
-ADS_PICS_DB    =r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\ADS_PICS_DB.xlsx"
-ADS_PICS_SHEET ='Sheet7' 
+WEB_PICS_DB    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\WEB_PICS_DB.xlsx"
+WEB_PICS_SHEET = 'Sheet4' #where the id's are
+
+ADS_PICS_DB    = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\ADS_PICS_DB.xlsx"
+ADS_PICS_SHEET = 'Sheet7' 
 
 START_ROW = 3 #start reading file at row x
 
 # FROM FILTER OUTPUT 1
 QUERY_COL             = 1
-TARGET_PROD_STATE_COL = 2
-EBAY_PROD_STATE_COL   = 3
-EBAY_TITLE_COL        = 4
-AVAILABLE_COLORS_COL  = 5
-DETECTED_COLOR_COL    = 6
+EBAY_TITLE_COL        = 2
+SUBTITLE_COL          = 3
+EBAY_PROD_DESCRIPTION = 4
+EBAY_TOTAL_PRICE_COL  = 5
+EBAY_PROD_URL_COL     = 6
+# DETECTED_COLOR_COL    = 6
 DETECTED_WARRANTY_COL = 7
-EBAY_TOTAL_PRICE_COL  = 8
-CHECKMARK             = 9
-# EBAY_VENDOR_NOTES_COL = 10
+#                     = 8
+# CHECKMARK RESERVED  = 9 RESERVED!
+# EBAY_VENDOR_NOTES_COL = 10 # NOT USED
 TARGET_ATTR_1_COL     = 10 
-SUBTITLE_COL          = 11
+TARGET_PROD_STATE_COL = 11
 # EBAY_PROD_DESCRIPTION_LINK = 7 #description already included in prod_url
-EBAY_PROD_URL_COL     = 12
+EBAY_PROD_STATE_COL   = 12
 #EMPTY CELL TO LEAVE THE ACCEPT MARK= 10
 EBAY_SELLER_VOTES_COL = 13
 EBAY_RETURNS_COL      = 14
 EBAY_SHIPPING_TIME_COL= 15
 EBAY_SHIPPING_PRICE_COL=16
-#from here I don't care for the order, random
 EBAY_PRICE_COL     = 17
 WP_PRICE_COL       = 18
 PICTURES_COL       = 19
@@ -54,15 +56,16 @@ PICTURES_COL       = 19
 EBAY_PROD_ID_COL   = 20
 EBAY_CATEGORY_COL  = 21
 TARGET_CATEGORY_COL= 22
-                #   =23 #  NOT USED, AVAILABLE
-# TARGET_ATTR_2_COL  = 24 #in phones now I don't target for colors
-EBAY_PROD_SPECS_COL= 25
+#                   =23 
+TARGET_ATTR_2_COL   =24 
+EBAY_PROD_SPECS_COL =25
 EBAY_VENDOR_NAME_COL=26
 WP_SHIPPING_TIME_COL=27
-EBAY_PROD_DESCRIPTION_COL = 28
+#                  = 28
 MODEL_COL           =29
 
-# FOR FILTER PUTPUT 2
+
+# FOR FILTER OUTPUT 2
 TARGET_CATEGORY2_COL = 1
 COMPLETE_QUERY2_COL  = 2
 WP_TITLE2_COL        = 3
@@ -91,34 +94,6 @@ WP_SHORT_DESCRIPTION_COL = 25
 
 
 
-def copy_move_file(src_dir, dst_dir, mode='time'):
-    '''file_name, src_dir, dst_dir, mode=time or no_time // absolute paths'''
-    #if mode=time -> include time on file title, elif normal -> not include time
-    import os
-    import shutil
-    import datetime
-
-    #detect file_name and file_format
-    file = src_dir.split('\\')[-1]
-    file_name = file.split('.')[0]
-    file_format = file.split('.')[1]
-    file_format = '.' + file_format
-
-    #create time id to rename the file
-    now = str(datetime.datetime.now())[:16]
-    now = now.replace(' ', '_')
-    now = now.replace(':', '-')
-
-    #include time or not based on specified mode
-    if mode == 'time':
-        abs_path = file_name + str(now) + file_format
-    elif mode == 'no_time':
-        abs_path = file_name + file_format
-
-    dst_path = dst_dir + '\\' + abs_path
-
-    shutil.copy(src_dir, dst_path)
-    print(f'file {file} moved to {dst_path}')
 
 def clean_excel(EXCEL_FILE):
     from openpyxl import load_workbook
@@ -126,13 +101,15 @@ def clean_excel(EXCEL_FILE):
 
     wb = load_workbook(EXCEL_FILE)
     ws1 = wb['Sheet1']
-    ws2 = wb['Sheet2']
+    # ws2 = wb['Sheet2']
 
+    # clean sheet 1
     #starting at 2, delete all rows
     ws1.delete_rows(3, ws1.max_row+1)
     wb.save(EXCEL_FILE)
-    ws2.delete_rows(3, ws2.max_row+1)
-    wb.save(EXCEL_FILE)
+    # clean sheet 2
+    # ws2.delete_rows(3, ws2.max_row+1)
+    # wb.save(EXCEL_FILE)
 
     logging.info(f'cleaned set_prod_db  and gaps_file to begin fresh writing')
 
@@ -329,7 +306,6 @@ def recordto_t2(sheet, data_torecord):
 
     query   = data_torecord.get('query')
     target_prod_state   = data_torecord.get('target_prod_state')
-    ebay_price  = data_torecord.get('ebay_price')
     ebay_shipping_time  = data_torecord.get('ebay_shipping_time')
     ebay_prod_specs  = data_torecord.get('ebay_prod_specs')
     ebay_prod_id    = data_torecord.get('ebay_prod_id')
@@ -337,20 +313,21 @@ def recordto_t2(sheet, data_torecord):
     target_attr_1   = data_torecord.get('target_attr_1')
     target_attr_2   = data_torecord.get('target_attr_2')
     ebay_total_price    = data_torecord.get('ebay_total_price')
-    ebay_price  = data_torecord.get('ebay_price')
     ebay_shipping_price = data_torecord.get('ebay_shipping_price')
     ebay_returns    = data_torecord.get('ebay_returns')
     ebay_prod_url   = data_torecord.get('ebay_prod_url')
     wp_price    = data_torecord.get('wp_price')
-    detected_color  = data_torecord.get('detected_color')
     warranty    = data_torecord.get('warranty')
     target_model    = data_torecord.get('target_model')
     ads_pics        = data_torecord.get('ads_pics')
     wp_ebay_title   = data_torecord.get('ebay_title')
     wp_short_description = data_torecord.get('wp_short_description')
     ebay_pics   = data_torecord.get('ebay_pics')
-    web_pics    = data_torecord.get('web_pics')
-    web_pics = str(web_pics)
+    # web_pics    = data_torecord.get('web_pics')
+    # web_pics = str(web_pics)
+    # detected_color  = data_torecord.get('detected_color')
+    # using ebay_total_price instead
+    # ebay_price  = data_torecord.get('ebay_price')
 
     last_row_s1 = ws.max_row + 1
 
@@ -365,6 +342,7 @@ def recordto_t2(sheet, data_torecord):
         string_pics = ','.join(ads_pics)
         ws.cell(row=last_row_s1, column= ADS_PICS2_1_COL,value=  string_pics)
 
+    ws.cell(row=last_row_s1, column= SUPPLIER_TOTAL_PRICE2_COL,value=  ebay_total_price)
     ws.cell(row=last_row_s1, column= TARGET_CATEGORY2_COL,value=  target_category)
     ws.cell(row=last_row_s1, column= COMPLETE_QUERY2_COL,value=  query)
     ws.cell(row=last_row_s1, column= WP_TITLE2_COL,value=  wp_ebay_title)
@@ -380,7 +358,7 @@ def recordto_t2(sheet, data_torecord):
     ws.cell(row=last_row_s1, column= EBAY_SHIPPING_PRICE2_COL,value=  ebay_shipping_price)
     ws.cell(row=last_row_s1, column= WARRANTY2_COL, value=  warranty)
     ws.cell(row=last_row_s1, column= EBAY_RETURNS2_COL,value=  ebay_returns)
-    ws.cell(row=last_row_s1, column= WEB_PICS2_COL,value=  web_pics)
+    # ws.cell(row=last_row_s1, column= WEB_PICS2_COL,value=  web_pics)
     ws.cell(row=last_row_s1, column= EBAY_ID2_COL,value=  ebay_prod_id)
     ws.cell(row=last_row_s1, column= TARGET_MODEL2_COL,value=  target_model)
     ws.cell(row=last_row_s1, column= EBAY_PICS2_COL,value=  ebay_pics)
@@ -389,8 +367,29 @@ def recordto_t2(sheet, data_torecord):
     # ws.cell(row=last_row_s1, column= VARIABLE_PROD2_COL,value=  ) #variable prods ignored for now
 
     # saving only once in run()
-    # wb.save(FILTER_T2_OUTPUT)
+    wb.save(FILTER_T2_OUTPUT)
     # print('SAVED FILE')
+
+def get_args():
+    import sys
+    # first arg  resume filtering in case of crush, specify as a parameter when calling from terminal
+    # you have to manually save the output file because this will remove all old entries. So it will start from index x, but all processed data will be removed
+    # or you can find the file in the logs folder
+    
+    # arg1 = c2 = channel_2 use input and output files of channel 2
+    try:
+        arg = sys.argv[1]
+        if arg == '-c2':
+            selected_input_file  = FILTER_OUTPUT_C2
+
+    except IndexError:
+        selected_input_file  = FILTER_OUTPUT1
+    
+    #print selecteds to check by the user
+    input_folder1  = selected_input_file.split('\\')[-1]
+    print(f'\nselected_input_file: {input_folder1}\n')
+
+    return selected_input_file
 
 
 #read filter t1 output, search for column with checkmark
@@ -408,42 +407,46 @@ def recordto_t2(sheet, data_torecord):
 def run():
     from openpyxl import load_workbook
 
-    wb = load_workbook(FILTER_OUTPUT1)
+    selected_input_file = get_args()
+
+    wb = load_workbook(selected_input_file)
     ws = wb.active
 
     #clean f2 output before sending new data
     clean_excel(FILTER_T2_OUTPUT)
 
     current_row = START_ROW
-    total_rows = len(ws['A'])
+    total_rows  = ws.max_row
     print(total_rows)
     for row in range(total_rows):
         try:
-            print(f'processed row {row}')
+            print(f'---------------processing row {row}')
 
             query =  ws.cell(row=current_row, column= QUERY_COL).value
             # print(query)
+            #if I delete the title, ignore the prod.
+            title =  ws.cell(row=current_row, column= EBAY_TITLE_COL).value
 
-            #ignore rows without checkmark
-            check_mark =  ws.cell(row=current_row, column= CHECKMARK).value
-            if check_mark == None : 
+            # if no title ignore
+            if title == None : 
                 current_row += 1
+                print(f'passed this item {row}')
                 continue 
 
-            print('----------------------')
-
+            print(f'title passed: {title}')    
             query =         ws.cell(row=current_row, column= QUERY_COL).value
             ebay_title =    ws.cell(row=current_row, column= EBAY_TITLE_COL).value
-            ebay_prod_state =    ws.cell(row=current_row, column= EBAY_PROD_STATE_COL).value
+            # ebay_prod_state =    ws.cell(row=current_row, column= EBAY_PROD_STATE_COL).value
             target_prod_state =     ws.cell(row=current_row, column= TARGET_PROD_STATE_COL).value
             ebay_price =    ws.cell(row=current_row, column= EBAY_PRICE_COL).value
             ebay_shipping_time =    ws.cell(row=current_row, column= EBAY_SHIPPING_TIME_COL).value
             ebay_prod_id =  ws.cell(row=current_row, column= EBAY_PROD_ID_COL).value
             # ebay_category = ws.cell(row=current_row, column= EBAY_CATEGORY_COL).value
-            ebay_prod_description =  ws.cell(row=current_row, column= EBAY_PROD_DESCRIPTION_COL).value
+            # ebay_prod_description =  ws.cell(row=current_row, column= EBAY_PROD_DESCRIPTION).value
             ebay_pics =         ws.cell(row=current_row, column= PICTURES_COL).value
             target_category =   ws.cell(row=current_row, column= TARGET_CATEGORY_COL).value
-            target_attr_2 =     ws.cell(row=current_row, column= DETECTED_COLOR_COL).value
+            # target_attr_2 =     ws.cell(row=current_row, column= DETECTED_COLOR_COL).value
+            # detected_color    = ws.cell(row=current_row, column= DETECTED_COLOR_COL ).value
             ebay_price =        ws.cell(row=current_row, column= EBAY_PRICE_COL).value
             ebay_shipping_price =   ws.cell(row=current_row, column= EBAY_SHIPPING_PRICE_COL).value
             ebay_returns =      ws.cell(row=current_row, column= EBAY_RETURNS_COL).value
@@ -455,23 +458,22 @@ def run():
             ebay_total_price =  ws.cell(row=current_row, column= EBAY_TOTAL_PRICE_COL).value
             # ebay_vendor_notes =     ws.cell(row=current_row, column= EBAY_VENDOR_NOTES_COL).value
             # seller_votes =   ws.cell(row=current_row, column= EBAY_SELLER_VOTES_COL).value
-            detected_color = ws.cell(row=current_row, column= DETECTED_COLOR_COL ).value
             warranty =       ws.cell(row=current_row, column= DETECTED_WARRANTY_COL ).value
             # subtitle =       ws.cell(row=current_row, column= SUBTITLE_COL).value
-            available_colors =  ws.cell(row=current_row, column= AVAILABLE_COLORS_COL).value
-            available_colors = str(available_colors) # commas makes it tupple
+            # available_colors =  ws.cell(row=current_row, column= AVAILABLE_COLORS_COL).value
+            # available_colors = str(available_colors) # commas makes it tupple
             target_model =   ws.cell(row=current_row, column= MODEL_COL).value
             target_model = str(target_model).lower()
             
-            print(f'target_model: {target_model},target_attr_1: {target_attr_1} target_attr_2 {target_attr_2}') 
+            # print(f'target_model: {target_model},target_attr_1: {target_attr_1}') #target_attr_2 {target_attr_2}') 
+            
+            # print(f"'query' {query}'ebay_title' {ebay_title}'target_prod_state' {target_prod_state}'ebay_price' {ebay_price}'ebay_shipping_time' {ebay_shipping_time}'ebay_prod_id' {ebay_prod_id}")
 
             current_row += 1 #to get to the next row in the next iteration
             
             # prod_state = compare_states(target_prod_state, ebay_prod_state)
             
             # this makes that all pics used in web are ebay pics and not the saved ones
-            # only 6 pics
-            web_pics = ebay_pics[:6]
             # web_pics =  get_pics_ids('web_pics', target_model, target_attr_2)
             # print(f'web_pics: {web_pics}')
             # if 'None' in web_pics or web_pics == 'not found':
@@ -488,7 +490,7 @@ def run():
             # else:
             #     print(f'web_pics {web_pics}')
             
-            ads_pics = get_pics_ids('ads_pics',target_model, target_attr_2)
+            # ads_pics = get_pics_ids('ads_pics',target_model, target_attr_2)
 
             wp_short_description = get_short_description(ebay_returns, warranty)
 
@@ -506,23 +508,24 @@ def run():
                 'ebay_prod_id':ebay_prod_id,
                 'target_category':target_category,
                 'target_attr_1':target_attr_1,
-                'target_attr_2':target_attr_2,
                 'ebay_total_price':ebay_total_price,
                 'ebay_price':ebay_price,
                 'ebay_shipping_price':ebay_shipping_price,
                 'ebay_returns':ebay_returns,
                 'ebay_prod_url':ebay_prod_url,
                 'wp_price':wp_price,
-                'detected_color':detected_color,
                 'warranty':warranty,
                 'target_model':target_model,
-                'web_pics':web_pics,
-                'ads_pics':ads_pics,
                 'ebay_title':ebay_title,
                 'ebay_pics':ebay_pics,
                 'ebay_prod_specs':ebay_prod_specs,
                 'wp_short_description':wp_short_description
-                #woo_id is included after wp_importer.py
+                # 'web_pics':web_pics,
+                # woo_id is included after wp_importer.py
+                # 'target_attr_2':target_attr_2,
+                # 'detected_color':detected_color,
+                # 'ads_pics':ads_pics,
+
                 }        
 
             #record to FILTER_T2_OUTPUT 
@@ -541,7 +544,7 @@ def run():
             print(f'error in run(): {e}')
             traceback.print_exc()
 
-    wb.save(FILTER_T2_OUTPUT)
+    # wb.save(FILTER_T2_OUTPUT)
 
 
 if __name__ == '__main__':

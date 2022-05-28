@@ -68,8 +68,8 @@ EBAY_PAYMENT_NAME   = 'payment_methods'
 EBAY_PROD_SPECS_NAME= 'prod_specs'
 EBAY_PROD_STATE_NAME= 'product_state'
 EBAY_PROD_DESCRIPTION_NAME = 'prod_description'
-EBAY_SERVED_AREA_NAME='served_area'
-EBAY_REVIEWS_NAME   = 'reviews'
+EBAY_SERVED_AREA_NAME = 'served_area'
+EBAY_REVIEWS_NAME     = 'reviews'
 EBAY_PROD_SOLD_OUT_NAME = 'product_sold_out_text'
 EBAY_IMPORT_TAXES_NAME  = 'import_taxes'
 TARGET_CATEGORY_NAME    = 'target_category' #used later in importer, if smartphone, import to smartphones
@@ -80,7 +80,6 @@ TARGET_PROD_STATE    = 'query_prod_state'
 EBAY_PICS_URLS       = 'ebay_pics'
 EBAY_SUBTITLE        = 'subtitle'
 EBAY_IFRAME          = 'iframe_description_url'
-mean_price_NAME= 'mean_price'
 SUBTITLE_NAME        = 'subtitle'
 
 # #CSV ROWS N, FILTER INPUT, CRAWLER OUTPUT
@@ -114,19 +113,19 @@ SUBTITLE_NAME        = 'subtitle'
 
 #FILTER_OUTPUT COLUMNS
 QUERY_COL             = 1
-TARGET_PROD_STATE_COL = 2
-EBAY_PROD_STATE_COL   = 3
-EBAY_TITLE_COL        = 4
-mean_price_COL  = 5
+EBAY_TITLE_COL        = 2
+SUBTITLE_COL          = 3
+EBAY_PROD_DESCRIPTION_COL = 4
+EBAY_PROD_URL_COL     = 5
 DETECTED_COLOR_COL    = 6
 DETECTED_WARRANTY_COL = 7
 EBAY_TOTAL_PRICE_COL  = 8
 # CHECKMARK RESERVED  = 9 RESERVED!
 # EBAY_VENDOR_NOTES_COL = 10 # NOT USED
 TARGET_ATTR_1_COL     = 10 
-SUBTITLE_COL          = 11
+TARGET_PROD_STATE_COL = 11
 # EBAY_PROD_DESCRIPTION_LINK = 7 #description already included in prod_url
-EBAY_PROD_URL_COL     = 12
+EBAY_PROD_STATE_COL   = 12
 #EMPTY CELL TO LEAVE THE ACCEPT MARK= 10
 EBAY_SELLER_VOTES_COL = 13
 EBAY_RETURNS_COL      = 14
@@ -145,15 +144,22 @@ TARGET_ATTR_2_COL   =24
 EBAY_PROD_SPECS_COL =25
 EBAY_VENDOR_NAME_COL=26
 WP_SHIPPING_TIME_COL=27
-EBAY_PROD_DESCRIPTION_COL = 28
+#                  = 28
 MODEL_COL           =29
 
 
+# performance metrics
+def print_performance(n_prods):
+    import time
+    seconds = time.perf_counter()
+    minuts  = seconds / 60
+    minuts  = int(minuts)
+
+    print(f'it took {minuts} minuts to filter all {n_prods} units')
+    
 def apply_wp_price(price, target_category):
     import random
 
-    input_price = price # to log
-    
     # add benefit based on category
     benefit = get_benefit(target_category)
     price += benefit
@@ -262,6 +268,8 @@ def get_ebay_pictures(ebay_prod_id):
 #replace the last url parametter for s-l600.jpg to get the big pic instead of the thumbnail
 def make_ebay_pics_urls(url_list):
 
+    max_n_pics = 6
+
     def change_tail(url):
         chunks = url.split('/')
         tail   = chunks[-1]
@@ -270,7 +278,10 @@ def make_ebay_pics_urls(url_list):
     
     def convert_to_str(lst):
         pics_string = ''
-        for pic in lst:
+        for i, pic in enumerate(lst):
+            # max n pics processed
+            if i > max_n_pics:
+                continue
             pic = str(pic)
             pics_string += pic
             pics_string += ','
@@ -554,7 +565,7 @@ def color_detector(ebay_title):
 #get warranty searching for text match
 def detect_warranty(subtitle, description):
     #notice monate != monaten
-    one_year  = ['garantía 1 año', '1 año garantía','garantía 12 meses', '12 meses garantía', '12 monate gewährleistung', '12 monaten gewährleistung' ,'12 monate herstellergarantie', '1 jahr gewährleistung' , '1 jahr herstellergarantie', '12 mesi garanzia', 'garanzia 12 mesi' , 'garanzia 1 anni']
+    one_year  = ['garantía 1 año', '1 año garantía','garantía 12 meses', '12 meses garantía', '12 meses de garantía', '12 monate gewährleistung', '12 monaten gewährleistung' ,'12 monate herstellergarantie', '1 jahr gewährleistung' , '1 jahr herstellergarantie', '12 mesi garanzia', 'garanzia 12 mesi' , 'garanzia 1 anni']
     half_year = ['6 meses garantía', 'garantía 6 meses', '6 monate gewährleistung' , '6 monate herstellergarantie', '6 mesi garanzia', 'garanzia 6 mesi']
     two_years = ['2 años de garantía','24 meses garantía','garantía 24 meses' ,'24 monate gewährleistung' , '24 monate herstellergarantie', '2 jahr gewährleistung' , '2 jahr herstellergarantie', '24 mesi garanzia', 'garanzia 24 mesi' , 'garanzia 1 anni']
 
@@ -730,7 +741,6 @@ def write_to_excel(data_to_dump, selected_output_file):
     target_prod_state=data_to_dump.get('target_prod_state')
     detected_color=data_to_dump.get('detected_color')
     warranty    =data_to_dump.get('warranty')
-    mean_price  =data_to_dump.get('mean_price')
     subtitle  =data_to_dump.get('subtitle')
     target_model  =data_to_dump.get('target_model')
     seller_votes  =data_to_dump.get('seller_votes')
@@ -764,7 +774,6 @@ def write_to_excel(data_to_dump, selected_output_file):
     ws.cell(row=last_row, column= EBAY_SELLER_VOTES_COL,value= seller_votes)
     ws.cell(row=last_row, column= DETECTED_COLOR_COL ,value= detected_color)
     ws.cell(row=last_row, column= DETECTED_WARRANTY_COL ,value= warranty)
-    ws.cell(row=last_row, column= mean_price_COL ,value= mean_price)
     ws.cell(row=last_row, column= SUBTITLE_COL ,value= subtitle)
     ws.cell(row=last_row, column= MODEL_COL ,value= target_model)
     # ws.cell(row=last_row, column= EBAY_SHIPPING_TIME_COL,value=ebay_shipping_time)
@@ -875,6 +884,7 @@ def get_prod_description(ebay_prod_description):
         ebay_prod_description = 'Too long'
     else:
         ebay_prod_description = get_textfrom_html(ebay_prod_description)
+        ebay_prod_description = ebay_prod_description.replace('\\t', '').replace(r'\\n', '')
     
     return ebay_prod_description
 
@@ -889,11 +899,9 @@ def check_if_spanish_seller(ebay_vendor_name):
     else:
          return False
 
-
-
 def get_args():
     import sys
-        # first arg  resume filtering in case of crush, specify as a parameter when calling from terminal
+    # first arg  resume filtering in case of crush, specify as a parameter when calling from terminal
     # you have to manually save the output file because this will remove all old entries. So it will start from index x, but all processed data will be removed
     # or you can find the file in the logs folder
     
@@ -926,9 +934,87 @@ def get_args():
 
 def clean_title(ebay_title):
     
-    title = ebay_title.replace('AT&T','')
+    title = ebay_title.lower()
+    
+    # items to delete
+    terms_to_remove = ['sin cara id', 'manzana','iva incl.', 'incl. iva', '(gsm)', 'gsm', 'at&t', 'at&amp;t', 'feria', 'cdma', '()', '/c 397']
+    title = remove_from_title(terms_to_remove, title)
 
+    #excelente estado
+    l = ['a-ware', 'a (grado)', 'grado a']
+    alt_phrase = 'estado excelente'
+    title = substitute(l, title, alt_phrase)
+    
+    # muy buen estado
+    l = ['muy bien', 'muy bueno', 'bien']
+    alt_phrase = 'muy buen estado'
+    title = substitute(l, title, alt_phrase)
+    
+    #estado aceptable
+    l = ['b-ware', 'grado b', 'grado a/b', ' b ', 'akzeptabel']
+    alt_phrase = 'estado aceptable'
+    title = substitute(l, title, alt_phrase)
+    
+    # desbloqueado
+    l = ['sin simlock', 'sin sim-lock', 'désimlocké', 'sin carrier', 'sin bloqueo de sim', 'sin bloqueo sim']
+    alt_phrase = 'desbloqueado'
+    title = substitute(l, title, alt_phrase)
+    
     return title
+
+# given title, change unwanted phrase for alternative phrase
+def substitute(items_list, old_title, alternative_phrase):
+    try:
+        for item in items_list:
+            if item in old_title:
+                new_title = old_title.replace(item, alternative_phrase)
+                return new_title
+        return old_title
+    except Exception as e:
+        return old_title
+        
+def remove_from_title(items_list, title):
+    
+    for item in items_list:
+        if item in title:
+            title = title.replace(item, '')
+    
+    return title
+
+def set_logger():
+    
+    # // Logging levels: Higher to lower
+    # TRACE
+    # DEBUG
+    # INFO
+    # WARN
+    # ERROR
+    # FATAL
+    # OFF
+    
+    import logging
+    import sys
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.WARN)
+    # formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s', 
+                                # '%m-%d-%Y %H:%M:%S')
+    formatter = logging.Formatter('%(message)s')
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.WARN)
+    stdout_handler.setFormatter(formatter)
+
+    file_handler = logging.FileHandler('logs.log')
+    file_handler.setLevel(logging.WARN)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stdout_handler)
+
+    #in code:
+    # import logging
+    # logging.warning('Watch out!')
 
 
 def process_import_taxes(ebay_import_taxes):
@@ -948,23 +1034,26 @@ def process_import_taxes(ebay_import_taxes):
 ### End definitions ###
 
 
-
 def run():
+
+    set_logger()
 
     # taking data from parameters passed when called the program
     selected_input_file, \
     selected_output_file, \
     resume_from_index_n = get_args()
 
-
     #make a copy in logs_folder
     copy_move_file(selected_output_file, LOGS_FOLDER)
     #delete old entries to start fresh
     clean_excel(selected_output_file)
 
+
     #for item in data:
-        #if item is broken,
-        #if item seller votes < x
+        #check if item is broken,
+        # check if price < low_median + tolerance
+        # apply rest of the filter
+        # if item seller votes < x
         #other filter rules...
         #items that pass filter:
             #try to use pics from pics_db, if no pics for that prod, use ebay's pics
@@ -974,12 +1063,11 @@ def run():
             #append to list
         #write from list to excel
 
-
     
     filtered_list = []
     # changed from median low to median high: now if product price is below median high we accept it.
     # median_low_price_list = filter_median_lower_price.run()
-    median_high_price_list = filter_median_price.run(selected_input_file)
+    median_low_price_list = filter_median_price.run(selected_input_file)
     # [print(item) for item in median_low_price_list]
 
     with open(selected_input_file, encoding='utf8') as json_file:
@@ -989,43 +1077,36 @@ def run():
         for item in scrapper_data[resume_from_index_n:]:        
 
             # here resume_index is used to print the current position of the process: item 5 of 10
-            print(f'prod processed: {resume_from_index_n} of {len(scrapper_data)} ')
+            print(f'\nprod processed: {resume_from_index_n} of {len(scrapper_data)} ')
             resume_from_index_n += 1
 
-            # variables to filter:
-            variable_prod =   item[EBAY_VARIABLE_PROD_NAME]
-            # ebay_reviews       =item[EBAY_REVIEWS_NAME]
-            # ebay_category =   item[EBAY_CATEGORY_NAME]
-            payment_methods = item[EBAY_PAYMENT_NAME]
-            prod_state =      item[EBAY_PROD_STATE_NAME]
-            sold_out_text =   str(item[EBAY_PROD_SOLD_OUT_NAME])
-            ebay_price =      item[EBAY_PRICE_NAME]
-            ebay_shipping_price =  item[EBAY_SHIPPING_PRICE]
-            area_served =     item[EBAY_SERVED_AREA_NAME]
-            target_category = item[TARGET_CATEGORY_NAME]
-            target_attr_1 =   item[TARGET_ATTR_1_NAME]
-            target_attr_2 =   item[TARGET_ATTR_2_NAME]
-            ebay_pics     =   item[EBAY_PICS_URLS]
-            ebay_vendor_name   =item[EBAY_VENDOR_NAME]
-            ebay_import_taxes  =item[EBAY_IMPORT_TAXES_NAME]
-            target_model       =item[TARGET_MODEL_NAME]
-            target_prod_state  =item[TARGET_PROD_STATE]
-            query =           item[EBAY_QUERY_NAME]
-            ebay_shipping_time = item[EBAY_SHIPPING_TIME]
-            ebay_returns =    item[EBAY_RETURNS_NAME]
-            ebay_prod_id =    item[EBAY_ID_NAME]
-            ebay_prod_url=    item[EBAY_PROD_URL_NAME]
-            ebay_subtitle   = item[EBAY_SUBTITLE]
-            mean_price=item[mean_price_NAME]
-            # ebay_iframe_url = item[EBAY_IFRAME]
+            #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
+            ebay_title  =  item[EBAY_TITLE_NAME]
+            prod_state  =  item[EBAY_PROD_STATE_NAME]
+            subtitle    =  item[SUBTITLE_NAME]
+            ebay_url    =  item[EBAY_PROD_URL_NAME]
+            item_description = item[EBAY_PROD_DESCRIPTION_NAME]
+            item_description = "\n".join(item_description)
+            
+            # is_defective =  filter_median_price.check_defective_prod(ebay_title, prod_state)
+            is_defective =  filter_median_price.check_defective_prod(ebay_title, prod_state, item_description, subtitle)
+            #IMPROVEMENT in prod description I could mark when "faulty", "craced", "smashed" ... are present in prod description or title, and like colors, include a column with detected faults
+            
+            if is_defective:
+                print(f'faulty item {ebay_title, prod_state, ebay_url}')
+                continue
+            
+            # check median_lower price + tolerance
+            # take the only 2 needed data to check price filter median low
+            target_model  = item[TARGET_MODEL_NAME]
+            target_attr_1 = item[TARGET_ATTR_1_NAME]
 
-            # process prices taxes, shipping, $€ exchange
-            if ebay_import_taxes:
-                ebay_import_taxes = process_import_taxes(ebay_import_taxes)
-            else:
-                ebay_import_taxes = 0
-                
+            # filter total price using median_low
+            model_and_attribute = target_model + f' {target_attr_1}'
+            ebay_price =      item[EBAY_PRICE_NAME]
+            
             # this puts the price to 0, to correct you have to search in console the str: "error in ebay shipping_price ebay_id" 
+            ebay_shipping_price = item[EBAY_SHIPPING_PRICE]
             ebay_shipping_price = process_shipping_price(ebay_shipping_price)
             if ebay_shipping_price == 'error processing shipping price':
                 print(f'error in ebay shipping_price ebay_id: {ebay_prod_id}')
@@ -1037,27 +1118,54 @@ def run():
                 print(f'Error in ebay_price, product with ebay_id: { ebay_prod_id}')
                 ebay_price = 0
             
+            ebay_import_taxes  =item[EBAY_IMPORT_TAXES_NAME]
+             # process prices taxes, shipping, $€ exchange
+            if ebay_import_taxes:
+                ebay_import_taxes = process_import_taxes(ebay_import_taxes)
+            else:
+                ebay_import_taxes = 0
+            
             ebay_total_price = ebay_price + ebay_shipping_price + ebay_import_taxes
-            wp_price = apply_wp_price(ebay_total_price, target_category)
 
-            # filter total price using median_low
-            model_and_attribute = target_model + f' {target_attr_1}'
-            r_median_high_filter = filter_median_price.filter_median_high_price(model_and_attribute, ebay_total_price, median_high_price_list)
+            # r_median_high_filter = filter_median_price.filter_median_high_price(model_and_attribute, ebay_total_price, median_high_price_list)
+            r_median_low_filter = filter_median_price.filter_median_high_price(model_and_attribute, ebay_total_price, median_low_price_list)
+            logging.warning(f'model_attr:{model_and_attribute}-title {ebay_title}')
             # if doesn't pass the filter continue
-            if not r_median_high_filter:
-                print('---------continued ')
+            if not r_median_low_filter:
+                logging.warning(f'---NOT ACCEPTED')
                 continue
 
-            raw_subtitle =   item[SUBTITLE_NAME]
+            # apply the rest of the filter
+            variable_prod =   item[EBAY_VARIABLE_PROD_NAME]
+            # remove some common kws like AT&T
+            ebay_title = clean_title(ebay_title)
+            # ebay_reviews       =item[EBAY_REVIEWS_NAME]
+            # ebay_category =   item[EBAY_CATEGORY_NAME]
+            payment_methods = item[EBAY_PAYMENT_NAME]
+            sold_out_text =   str(item[EBAY_PROD_SOLD_OUT_NAME])
+            area_served =     item[EBAY_SERVED_AREA_NAME]
+            target_category = item[TARGET_CATEGORY_NAME]
+            target_attr_2 =   item[TARGET_ATTR_2_NAME]
+            ebay_pics     =   item[EBAY_PICS_URLS]
+            ebay_vendor_name   =item[EBAY_VENDOR_NAME]
+            target_prod_state  =item[TARGET_PROD_STATE]
+            query =           item[EBAY_QUERY_NAME]
+            ebay_shipping_time = item[EBAY_SHIPPING_TIME]
+            ebay_returns =    item[EBAY_RETURNS_NAME]
+            ebay_prod_id =    item[EBAY_ID_NAME]
+            ebay_prod_url=    item[EBAY_PROD_URL_NAME]
+            ebay_subtitle   = item[EBAY_SUBTITLE]
+            # ebay_iframe_url = item[EBAY_IFRAME]
+
+            wp_price = apply_wp_price(ebay_total_price, target_category)
+
+            raw_subtitle = item[SUBTITLE_NAME]
             subtitle = get_subtitle(raw_subtitle)
             
-            raw_seller_votes =    item[EBAY_SELLER_VOTES_NAME]
+            raw_seller_votes = item[EBAY_SELLER_VOTES_NAME]
             seller_votes = get_seller_votes(raw_seller_votes)
 
-            ebay_prod_specs = item[EBAY_PROD_SPECS_NAME]
-            ebay_title =  item[EBAY_TITLE_NAME]
-            ebay_title = clean_title(ebay_title)
-
+            ebay_prod_specs = item[EBAY_PROD_SPECS_NAME]            
             
             #i.e: cash converters is always in spanish, no need to translate, identify more spanish sellers to filter faster
             spanish_seller = check_if_spanish_seller(ebay_vendor_name)
@@ -1065,20 +1173,22 @@ def run():
                 ebay_prod_specs        = translate_specs(ebay_prod_specs)
                 ebay_title, origin_lan = nlp_translate(ebay_title)
 
+            #IMPROVEMENT in prod description I could mark when "faulty", "craced", "smashed" ... are present in prod description or title, and like colors, include a column with detected faults
             raw_ebay_prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
-            ebay_prod_description = get_prod_description(raw_ebay_prod_description)
+            ebay_prod_description  = get_prod_description(raw_ebay_prod_description)
+            warranty               = detect_warranty(ebay_subtitle, ebay_prod_description)
+            #detected_faults = detect_faults()
+            #write faults column
 
-            warranty  = detect_warranty(ebay_subtitle, ebay_prod_description)
             ebay_vendor_notes= get_ebay_vendor_notes(ebay_prod_specs)
-            detected_color   = color_detector(ebay_title)
+            # detected_color   = color_detector(ebay_title)
             
             if area_served == None: area_served='not result'
             
             #cash converters includes color in specs
-            if ebay_vendor_name == 'cashconverters_es':
-                detected_color = color_detector(ebay_prod_specs)
+            # if ebay_vendor_name == 'cashconverters_es':
+                # detected_color = color_detector(ebay_prod_specs)
             
-            ebay_title_lower = ebay_title.lower()
             #if item is variable write to sheet2
             if variable_prod != None: #avoid product if it's a variable prod
                 print("this item is variable",item['title'])
@@ -1094,9 +1204,6 @@ def run():
             elif 'PayPal' not in payment_methods or 'Visa' not in payment_methods:
                 print('not payment',item['title'], f'payment_methods: {payment_methods} \n')
                 continue
-            elif 'Para desguace' in prod_state: #if the prod is broken
-                print('broken item',item['title'])
-                continue
             elif ebay_price == '':
                 print('no price',item['title'])
                 continue
@@ -1109,18 +1216,8 @@ def run():
             elif 'Solo recogida local' in area_served:
                 print('only local pick up no shipping prod: ',item['title'])
                 continue
-            # avoid broken but declared like used, in title they include 'for pieces'
-            elif 'placa madre' in ebay_title_lower or 'placa base' in ebay_title_lower or 'motherboard' in ebay_title_lower or 'logic card' in ebay_title_lower or 'defectuoso' in ebay_title_lower:
-                continue
-            elif 'piezas' in ebay_title_lower or 'parts' in ebay_title_lower:
-                continue
-            # icloud locked notice the white space to differentiate "unlocked" and " locked"
-            elif ' bloqueado' in ebay_title_lower or ' locked' in ebay_title_lower:
-                continue
             
-
     ###################### THIS GOES IN SCRAPPER#################
-
 
             #check if there're pictures for this prod in pics_db
             # pictures = check_pics_db(target_model, target_attr_2)
@@ -1131,9 +1228,8 @@ def run():
             pictures = make_ebay_pics_urls(ebay_pics)
                 # pictures = get_ebay_pictures(ebay_prod_id)# through api
             
-
             wp_shipping_time = get_wp_shipping_time(ebay_shipping_time) 
-
+            
             #apply our category based on Ebay's category
             # prod_db_category = apply_category(ebay_category)
             # prod_brand = apply_prod_brand(ebay_title)
@@ -1164,11 +1260,10 @@ def run():
                 'ebay_vendor_notes':ebay_vendor_notes,
                 'target_prod_state':target_prod_state,
                 'seller_votes':seller_votes,
-                'detected_color':detected_color,
+                # 'detected_color':detected_color,
                 'warranty':warranty,
-                'mean_price':mean_price,
                 'target_model':target_model,
-                'subtitle':subtitle
+                'subtitle':subtitle,
             }
 
             filtered_list.append(data_to_dump)
@@ -1182,9 +1277,10 @@ def run():
                 # # new_file.close()
 
             write_to_excel(data_to_dump, selected_output_file)
-            
-            t = time.perf_counter()
-            print(f'it took {t} to filter all units')
+
+
+        n_all_items = len(scrapper_data)
+        print_performance(n_all_items)
 
 
 if __name__ == '__main__':

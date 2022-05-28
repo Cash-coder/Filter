@@ -1,10 +1,9 @@
-# 
-
+import traceback
+import pandas as pd
 import json
-import statistics
 import funcs_currency
 # import names used in json input file
-from filter import TARGET_MODEL_NAME, EBAY_PRICE_NAME, EBAY_SHIPPING_PRICE, EBAY_IMPORT_TAXES_NAME, TARGET_ATTR_1_NAME, EBAY_ID_NAME
+from filter import TARGET_MODEL_NAME, EBAY_PRICE_NAME, EBAY_SHIPPING_PRICE, EBAY_IMPORT_TAXES_NAME, TARGET_ATTR_1_NAME, EBAY_ID_NAME, EBAY_TITLE_NAME, EBAY_PROD_STATE_NAME, EBAY_PROD_DESCRIPTION_NAME, EBAY_SUBTITLE
 from filter import process_shipping_price
 
 
@@ -76,7 +75,6 @@ def process_price(price):
     price = price.replace('.', '') #like 1.256,44$
     price = int(price)
 
-   
     return price
 
 # used in filter.py
@@ -85,40 +83,109 @@ def filter_median_high_price(model_attr, price, median_price_list):
         model = item.get('model')
         if model_attr == model:
             # median_high = item.get('median_high')
-            median_low = item.get('median_low')
-            # if item's price is lower than median_low price return True
+            bottom_30_percent = item.get('bottom_percent')
+            bottom_30_percent = int(bottom_30_percent)
 
-            # 
-            tolerance = set_tolerance(price)
-            price_with_tolerance = price + (price * tolerance)
+            # admit some tolerance for the low prices
+            # tolerance_percentage = set_tolerance(price)
+            # median_low_price_with_tolerance = median_low + (price * tolerance_percentage)
+
+            print(f'ebay_model_attr: {model_attr}, median_model_attr:{model}\nprice {price} bottom_30_percent:{bottom_30_percent}')
             # if price_with_tolerance < median_high:
-            if price_with_tolerance < median_low:
+            if price < bottom_30_percent:
                 # print(f'ACCEPTED price {price} median_high {median_high}')
-                print(f'ACCEPTED price {price} median_low {median_low}')
+                print(f'ACCEPTED price {price} median_low_tolerance {bottom_30_percent}')
                 return True
             else:
-                print(f'FALSE not accepted price {price} median_low {median_low}')
+                print(f'FALSE not accepted price {price} median_low {bottom_30_percent}')
                 return False
 
 def set_tolerance(input_price):
     
     if input_price < 200:
-        tolerance = 0.18
+        tolerance = 0.15
     elif input_price < 400:
-        tolerance = 0.12
+        tolerance = 0.10
     elif input_price < 600:
-        tolerance = 0.10
+        tolerance = 0.08
     elif input_price < 800:
-        tolerance = 0.10
+        tolerance = 0.065
     elif input_price < 1000:
-        tolerance = 0.07
+        tolerance = 0.06
     else: 
         tolerance = 0.05
-   
     
     return tolerance
 
+def check_defective_prod(ebay_title, prod_state, item_description, subtitle):
+    try:
 
+        ebay_title_lower = ebay_title.lower()
+        
+        #check if bad prod_state
+        if 'Para desguace' in prod_state: 
+            print(f'broken item {ebay_title, prod_state}')
+            return True
+
+        # check bad stuff in title
+        # items grade d considered bad state
+        bad_stuff_signs = [
+            'repuestos', 'pantalla rota', 'roto', 'pantalla rajada', 
+            'placa madre', 'placa base', 'tarjeta madre', 'motherboard',  'logic card', 'placa lógica ', 'defectuoso', 'defectuosa',
+            ' bad', 'piezas','parts','mal estado',' bloqueado',' locked', 'cracked back glass', 'agrietado espalda',
+            'leer descripción', 'por favor leer', 'incompleto', 'destrozada', 'destrozado' , ' bloqueo icloud',
+            'sin cámara trasera', 'grado d', ' d ', 'no funciona', 'agrietado'
+            ]
+        
+         # o2,xfinity, t-mobile are phone carriers
+        carriers = ['o2', 'xfinity' , 't-mobile', 'at&amp;t', 'verizon', 'cricket','sprint']
+
+        # title bad signs 
+        r = _check(bad_stuff_signs, ebay_title_lower)
+        if r: 
+            return True
+        # title carriers 
+        r = _check(carriers, ebay_title_lower)
+        if r: 
+            return True
+
+
+        # for sign in bad_stuff_signs:
+        #     if sign in ebay_title_lower:
+        #         print(f'broken item {ebay_title, prod_state}')
+        #         return True
+
+        # check bad stuff in description
+        r = _check(bad_stuff_signs, item_description)
+        if r: 
+            return True
+        
+        # subtitle bad_signs 
+        if subtitle:
+            r = _check(bad_stuff_signs, subtitle)
+            if r: 
+                return True
+        # subtitle carriers
+        if subtitle:
+            r = _check(carriers, subtitle)
+            if r: 
+                return True
+
+
+    except Exception as e:
+        print(e)       
+        traceback.print_exc()
+        
+        return True # if filter fails, avoid this prod
+
+def _check(items_list, text):
+    text = text.lower()
+
+    for item in items_list:
+        if item in text:
+            print(f'found bad sign: {item}')
+            return True
+    
 
 def run(selected_input_file):
 
@@ -127,17 +194,29 @@ def run(selected_input_file):
 
         prods_to_filter_price_by_median = []
         for item in scrapper_data:  
-            # print(i)
             
             # variables to filter:
-            price   = item[EBAY_PRICE_NAME]
-            ebay_id = item[EBAY_ID_NAME]
-            model   = item[TARGET_MODEL_NAME]
-            shipping_price = item[EBAY_SHIPPING_PRICE]
-            query_attr     = item[TARGET_ATTR_1_NAME]
-            import_taxes   = item[EBAY_IMPORT_TAXES_NAME]
+            price       = item[EBAY_PRICE_NAME]
+            ebay_id     = item[EBAY_ID_NAME]
+            model       = item[TARGET_MODEL_NAME]
+            ebay_title  = item[EBAY_TITLE_NAME]
+            subtitle    = item[EBAY_SUBTITLE]
+            query_attr  = item[TARGET_ATTR_1_NAME]
+            import_taxes     = item[EBAY_IMPORT_TAXES_NAME]
+            prod_state       = item[EBAY_PROD_STATE_NAME]
+            shipping_price   = item[EBAY_SHIPPING_PRICE]
+            prod_description = item[EBAY_PROD_DESCRIPTION_NAME]
+            prod_description = "\n".join(prod_description)
+
+            is_defective = check_defective_prod(ebay_title, prod_state, prod_description, subtitle)
             
+            if is_defective:
+                #delete_item ?
+                # enumerate add index to list, in filter.py remove all indexes from json
+                continue
+
             price = process_price(price)
+            
             if 'local pick up' in shipping_price:
                 continue
             shipping_price = process_shipping_price(shipping_price)
@@ -161,19 +240,27 @@ def run(selected_input_file):
                 update_entry(r_index, price, prods_to_filter_price_by_median)
             else:
                 create_entry(model, price, prods_to_filter_price_by_median)
+            
 
     # for each item in list, get the median price from item's prices list
     for item in prods_to_filter_price_by_median:
         prices_list = item.get('prices')
 
-        median_low = statistics.median_low(prices_list)
-        item['median_low'] = median_low
+        # median_low = statistics.median_low(prices_list)
         
-        # median_high = statistics.median_high(prices_list)
-        # item['median_high'] =  median_high
-        # remove prices list, memory efficient
+        # get the bottom 25% of prices
+        pd_serialization = pd.Series(prices_list)
+        bottom_25_percentage = pd_serialization.describe()['25%']
+
+        # get the 5% of prices and sum to 25 to get 30% or prices
+        # _05_percent = sum(prices_list) / len(prices_list) * 0.05
+        # bottom_30_percent = bottom_25_percentage + _05_percent
+
+        item['bottom_percent'] = bottom_25_percentage
+        
         del item['prices']
 
+    # print model_attr, bottom_30 price
     [print(item) for item in prods_to_filter_price_by_median]
 
     return prods_to_filter_price_by_median
