@@ -79,6 +79,8 @@ def process_price(price):
 
 # used in filter.py
 def filter_median_high_price(model_attr, price, median_price_list):
+    price = int(price)
+
     for item in median_price_list:
         model = item.get('model')
         if model_attr == model:
@@ -130,11 +132,11 @@ def check_defective_prod(ebay_title, prod_state, item_description, subtitle):
         # check bad stuff in title
         # items grade d considered bad state
         bad_stuff_signs = [
-            'repuestos', 'pantalla rota', 'roto', 'pantalla rajada', 
+            'repuestos', 'pantalla rota', 'roto', 'pantalla rajada', 'pantalla dañada', 'daños', 'desmontaje'
             'placa madre', 'placa base', 'tarjeta madre', 'motherboard',  'logic card', 'placa lógica ', 'defectuoso', 'defectuosa',
-            ' bad', 'piezas','parts','mal estado',' bloqueado',' locked', 'cracked back glass', 'agrietado espalda',
+            ' bad', 'piezas','mal estado',' bloqueado',' locked', 'cracked back glass', 'agrietado espalda',
             'leer descripción', 'por favor leer', 'incompleto', 'destrozada', 'destrozado' , ' bloqueo icloud',
-            'sin cámara trasera', 'grado d', ' d ', 'no funciona', 'agrietado'
+            'sin cámara trasera', 'grado d', ' d ', 'no funciona', 'agrietado', 'caja vacía', 'desmontaje'
             ]
         
          # o2,xfinity, t-mobile are phone carriers
@@ -253,10 +255,10 @@ def run(selected_input_file):
         bottom_25_percentage = pd_serialization.describe()['25%']
 
         # get the 5% of prices and sum to 25 to get 30% or prices
-        # _05_percent = sum(prices_list) / len(prices_list) * 0.05
-        # bottom_30_percent = bottom_25_percentage + _05_percent
+        _10_percent = sum(prices_list) / len(prices_list) * 0.1
+        bottom_35_percent = bottom_25_percentage + _10_percent
 
-        item['bottom_percent'] = bottom_25_percentage
+        item['bottom_percent'] = bottom_35_percent
         
         del item['prices']
 
