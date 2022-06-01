@@ -153,7 +153,7 @@ def run():
     with open(CRAWLER_OUTPUT_CASHCON, encoding='utf8') as json_file:
         scrapper_data = json.load(json_file)
 
-        for item in scrapper_data:        
+        for i, item in enumerate(scrapper_data):        
 
             #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
             target_category = item[TARGET_CATEG]
@@ -195,6 +195,7 @@ def run():
 
             # items_list.append(data_to_dump)
             write_to_excel(data_to_dump)
+            print(f'processed {i+1}')
 
 if __name__ == '__main__':
     run()
