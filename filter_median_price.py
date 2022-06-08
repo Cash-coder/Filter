@@ -132,11 +132,16 @@ def check_defective_prod(ebay_title, prod_state, item_description, subtitle):
         # check bad stuff in title
         # items grade d considered bad state
         bad_stuff_signs = [
-            'repuestos', 'pantalla rota', 'roto', 'pantalla rajada', 'pantalla dañada', 'daños', 'desmontaje'
-            'placa madre', 'placa base', 'tarjeta madre', 'motherboard',  'logic card', 'placa lógica ', 'defectuoso', 'defectuosa',
+            'repuesto', 'pantalla rota', 'roto', 'pantalla rajada', 'pantalla dañada', 'daños', 'desmontaje'
+            'placa madre', 'placa base', 'tarjeta madre', 'motherboard',  'logic card', 'placa lógica', 'defectuoso', 'defectuosa',
             ' bad', 'piezas','mal estado',' bloqueado',' locked', 'cracked back glass', 'agrietado espalda',
             'leer descripción', 'por favor leer', 'incompleto', 'destrozada', 'destrozado' , ' bloqueo icloud',
-            'sin cámara trasera', 'grado d', ' d ', 'no funciona', 'agrietado', 'caja vacía', 'desmontaje'
+            'sin cámara trasera', 'grado d', ' d ', 'no funciona', 'agrietado', 'caja vacía', 'desmontaje',
+            # airpods
+            'sólo', 'solo lado', 'sólo lado','solamente', 'izquierdo' ,'izquierda', 'derecho', 'reemplazo', 'caso sólo'
+            # macbooks | para macbook
+            'montaje', 'ensamblaje', 'para', 'reposamanos', 'reposamuñecas', 'pantalla completa', 'pieza original', 'conjunto de pantalla', 'conjunto pantalla', 'pantalla conjunto'
+            'barra superior', 'topcase', 'top case'
             ]
         
          # o2,xfinity, t-mobile are phone carriers
@@ -185,7 +190,7 @@ def _check(items_list, text):
 
     for item in items_list:
         if item in text:
-            print(f'found bad sign: {item}')
+            print(f'found bad sign: {item} in text: {text}')
             return True
     
 
@@ -215,6 +220,10 @@ def run(selected_input_file):
             if is_defective:
                 #delete_item ?
                 # enumerate add index to list, in filter.py remove all indexes from json
+                continue
+
+            # avoid prods from australia
+            if 'AUD' in price:
                 continue
 
             price = process_price(price)

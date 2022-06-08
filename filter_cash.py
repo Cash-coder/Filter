@@ -133,13 +133,41 @@ def get_specs(specs_html_string):
     return specs_text
 
 def apply_profit_margin(price, target_cat):
+    import random 
+
     price = int(price)
     
-    if target_cat == 'smartphones':
+    if target_cat == 'videogames':
+        profit = 4
+        wp_price = price + profit
+    
+    else: 
         profit = 12
         wp_price = price + profit
     
-    return wp_price
+    # declare taxes and fees
+    taxes = profit * 0.21 #21%
+    stripe_fee_rate  = 0.014 # 1.4%
+
+    # taxes
+    wp_price += taxes
+
+    # calculate stripe fee
+    stripe_fee = stripe_fee_rate * wp_price
+
+    # add fee
+    wp_price += stripe_fee
+
+    wp_price = int(wp_price)
+
+    # add attractive termination to the price: 55 -> 54,45
+    terminator_options = [0.14,0.23,0.24,0.34,0.49,0.57,0.83,0.97]
+    terminator = random.choice(terminator_options)
+
+    final_price_decorated = wp_price + terminator
+
+    # print(f'{wp_price} - {final_price_decorated}')
+    return final_price_decorated
 
 
 def run():
@@ -174,6 +202,10 @@ def run():
             specs_text = f'{prod_state}\n\n{specs_text}'
 
             edited_pics = edit_pic_urls(pics)
+
+            # 1.200 -> 1200
+            price = price.replace('.','')
+
             wp_price    = apply_profit_margin(price, target_category)
             wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
 
