@@ -155,10 +155,11 @@ def print_performance(n_prods, n_accepted_items):
     minuts  = seconds / 60
     minuts  = int(minuts)
 
-    percentage_accepted_items = int(n_accepted_items / n_prods) * 100
+    percentage_accepted_items = n_accepted_items / n_prods * 100
+    percentage_accepted_items = str(percentage_accepted_items).split('.')[1][:2]
 
     print(f'it took {minuts} minuts to filter all {n_prods} units')
-    print(f'accepted {n_accepted_items} of {n_prods} | {percentage_accepted_items}%')
+    print(f'accepted {n_accepted_items} of {n_prods} | {percentage_accepted_items}% of pass rate')
     
 def apply_wp_price(price, target_category):
     import random

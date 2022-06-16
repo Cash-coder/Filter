@@ -1,4 +1,5 @@
 import json
+import traceback
 
 # files
 CRAWLER_OUTPUT_CASHCON = r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\cash_crawler_output.json'
@@ -49,20 +50,13 @@ def clean_excel(EXCEL_FILE):
 
     logging.info(f'cleaned set_prod_db  and gaps_file to begin fresh writing')
 
+
 def edit_pic_urls(pics):
     
-    def edit_url(url):
-        # print(f'original: {url}')
-
-        edited = url.replace("background-image: url(", '').replace("');", "").replace('small', 'large,').replace("'", "")
-        # print(f'edited : {edited} \n')
-
-        return edited
-    
     pics_string = ''
+
     for pic in pics:
-        edited_url = edit_url(pic)
-        pics_string += edited_url
+        pics_string += pic + ','
     
     return pics_string
 
@@ -183,51 +177,58 @@ def run():
 
         for i, item in enumerate(scrapper_data):        
 
-            #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
-            target_category = item[TARGET_CATEG]
-            description     = item[DESCRIPTION]
-            query_model     = item[QUERY_MODEL]
-            prod_url    = item[PROD_URL]
-            cash_id     = item[CASH_ID]
-            attr1   = item[ATTR1]
-            title   = item[TITLE]
-            specs   = item[SPECS]
-            price   = item[PRICE]
-            pics    = item[PICS]
-            query   = item[QUERY]
+            try:
 
-            prod_state  = get_prod_state(description)
-            specs_text  = get_specs(specs)  
-            # combine state and specs
-            specs_text = f'{prod_state}\n\n{specs_text}'
+                #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
+                target_category = item[TARGET_CATEG]
+                description     = item[DESCRIPTION]
+                query_model     = item[QUERY_MODEL]
+                prod_url    = item[PROD_URL]
+                cash_id     = item[CASH_ID]
+                attr1   = item[ATTR1]
+                title   = item[TITLE]
+                specs   = item[SPECS]
+                price   = item[PRICE]
+                pics    = item[PICS]
+                query   = item[QUERY]
 
-            edited_pics = edit_pic_urls(pics)
+                prod_state  = get_prod_state(description)
+                specs_text  = get_specs(specs)  
+                # combine state and specs
+                specs_text = f'{prod_state}\n\n{specs_text}'
 
-            # 1.200 -> 1200
-            price = price.replace('.','')
+                edited_pics = edit_pic_urls(pics)
 
-            wp_price    = apply_profit_margin(price, target_category)
-            wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
+                # 1.200 -> 1200
+                price = price.replace('.','')
 
-            data_to_dump = {
-                'query_model':query_model,
-                'wp_short_description':wp_short_description,
-                'prod_url':prod_url,
-                'wp_price':wp_price,
-                'attr1':attr1,
-                'title':title,
-                'specs':specs_text,
-                'price':price,
-                'query':query,
-                'edited_pics':edited_pics,
-                'prod_state':prod_state,
-                'cash_id':cash_id,
-                'target_category':target_category
-            }
+                wp_price    = apply_profit_margin(price, target_category)
+                wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
 
-            # items_list.append(data_to_dump)
-            write_to_excel(data_to_dump)
-            print(f'processed {i+1}')
+                data_to_dump = {
+                    'query_model':query_model,
+                    'wp_short_description':wp_short_description,
+                    'prod_url':prod_url,
+                    'wp_price':wp_price,
+                    'attr1':attr1,
+                    'title':title,
+                    'specs':specs_text,
+                    'price':price,
+                    'query':query,
+                    'edited_pics':edited_pics,
+                    'prod_state':prod_state,
+                    'cash_id':cash_id,
+                    'target_category':target_category
+                }
+
+                # items_list.append(data_to_dump)
+                write_to_excel(data_to_dump)
+                print(f'processed {i+1}')
+
+            except Exception as e:
+                print(e)
+                traceback.print_exc()
+
 
 if __name__ == '__main__':
     run()
