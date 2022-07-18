@@ -36,7 +36,6 @@ PROD_STATE_COL  = 26
 CASH_PRICE_COL  = 27
 
 
-
 def clean_excel(EXCEL_FILE):
     from openpyxl import load_workbook
     import logging
