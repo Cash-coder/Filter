@@ -1,7 +1,7 @@
 import json
 
 # files
-CRAWLER_OUTPUT_PHONEMAD = r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\phone_m_output.json'
+CRAWLER_OUTPUT_PHONEMAD =  r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\phone_m_output.json'
 FILTER_T2_OUTPUT        =  r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_T2_OUTPUT.xlsx" 
 
 # crawler json data names
@@ -18,20 +18,21 @@ QUERY        = 'query'
 
 # filter output cols
 TARGET_CATEGORY_COL = 1
-QUERY_COL       = 2
-TITLE_COL       = 3
-ATTR1_COL       = 7
-# ATTR2_COL       = 8
-PROD_URL_COL    = 9
-WP_PRICE_COL    = 10
-WARRANTY_COL    = 15
-SPECS_COL       = 19
-PROD_ID_COL     = 18
-QUERY_MODEL_COL = 20
-EDITED_PICS_COL = 24
+QUERY_COL          = 2
+TITLE_COL          = 3
+ATTR1_COL          = 7
+# ATTR2_COL          = 8
+PROD_URL_COL       = 9
+WP_PRICE_COL       = 10
+SUPPLIER_PRICE_COL = 11
+WARRANTY_COL       = 15
+SPECS_COL          = 19
+PROD_ID_COL        = 18
+QUERY_MODEL_COL    = 20
+EDITED_PICS_COL    = 24
 WP_SHORT_DESCRIPTION = 25
-PROD_STATE_COL  = 26
-CASH_PRICE_COL  = 27
+PROD_STATE_COL     = 26
+
 
 
 
@@ -113,7 +114,7 @@ def write_to_excel(data_to_dump):
     ws.cell(row=last_row, column= ATTR1_COL ,value=  attr1 ) 
     ws.cell(row=last_row, column= TITLE_COL ,value=  title ) 
     ws.cell(row=last_row, column= SPECS_COL ,value=  specs ) 
-    ws.cell(row=last_row, column= CASH_PRICE_COL ,value=  price ) 
+    ws.cell(row=last_row, column= SUPPLIER_PRICE_COL ,value=  price ) 
     ws.cell(row=last_row, column= QUERY_COL ,value=  query ) 
     ws.cell(row=last_row, column= WP_PRICE_COL,value=  wp_price ) 
     ws.cell(row=last_row, column= WP_SHORT_DESCRIPTION,value=  wp_short_description ) 
