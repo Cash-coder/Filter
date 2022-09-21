@@ -1,6 +1,9 @@
 import json
 import traceback
 
+#settings
+max_pics = 3
+
 # files
 CRAWLER_OUTPUT_CASHCON = r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\cash_crawler_output.json'
 FILTER_T2_OUTPUT =  r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\FILTER_T2_OUTPUT.xlsx" 
@@ -18,22 +21,43 @@ PRICE        = 'price'
 PICS         = 'pics'
 QUERY        = 'query'
 
+# filter T2 output cols 
+CATEGORY_T2          = 1
+COMPLETE_QUERY_T2    = 2
+WP_TITLE_T2          = 3
+ATTR1_T2             = 7
+ATTR2_T2             = 8
+SUPPLIER_PROD_URL_T2 = 9
+WP_PRICE_T2          = 10
+SUPPLIER_PRICE_T2    = 11
+SHIPPING_TIME_T2     = 13
+SHIPPING_PRICE_T2    = 14
+WARRANTY_T2          = 15
+RETURNS_T2           = 16
+SPECS_T2             = 19
+SUPPLIER_PROD_ID_T2  = 18
+QUERY_MODEL_T2       = 20
+SUPPLIER_PICS_URL_T2 = 24
+WP_SHORT_DESCRIPTION_T2 = 25
+PROD_STATE_T2           = 26
+
 # filter output cols
-TARGET_CATEGORY_COL = 1
-QUERY_COL       = 2
-TITLE_COL       = 3
-ATTR1_COL       = 7
-# ATTR2_COL       = 8
-PROD_URL_COL    = 9
-WP_PRICE_COL    = 10
-WARRANTY_COL    = 15
-SPECS_COL       = 19
-CASH_PROD_ID    = 18
-QUERY_MODEL_COL = 20
-EDITED_PICS_COL = 24
+CATEGORY_T2 = 1
+COMPLETE_QUERY_T2       = 2
+WP_TITLE_T2       = 3
+ATTR1_T2       = 7
+ATTR2_T2       = 8
+SUPPLIER_PROD_URL_T2    = 9
+WP_PRICE_T2    = 10
+SUPPLIER_PRICE_T2  = 11
+WARRANTY_T2    = 15
+SPECS_T2       = 19
+SUPPLIER_PROD_ID_T2    = 18
+QUERY_MODEL_T2 = 20
+SUPPLIER_PICS_URL_T2 = 24
 WP_SHORT_DESCRIPTION = 25
-PROD_STATE_COL  = 26
-CASH_PRICE_COL  = 27
+PROD_STATE_T2  = 26
+
 
 
 def clean_excel(EXCEL_FILE):
@@ -54,7 +78,7 @@ def edit_pic_urls(pics):
     
     pics_string = ''
 
-    for pic in pics:
+    for pic in pics[::max_pics]:
         pics_string += pic + ','
     
     return pics_string
@@ -94,21 +118,21 @@ def write_to_excel(data_to_dump):
     last_row = ws.max_row + 1
 
     # write warranty always 2 years
-    ws.cell(row=last_row, column= WARRANTY_COL ,value=  '2 años') 
+    ws.cell(row=last_row, column= WARRANTY_T2 ,value=  '2 años') 
 
-    ws.cell(row=last_row, column= QUERY_MODEL_COL ,value=  query_model ) 
-    ws.cell(row=last_row, column= PROD_URL_COL ,value=  prod_url ) 
-    ws.cell(row=last_row, column= EDITED_PICS_COL ,value=  edited_pics ) 
-    ws.cell(row=last_row, column= PROD_STATE_COL ,value=  prod_state ) 
-    ws.cell(row=last_row, column= ATTR1_COL ,value=  attr1 ) 
-    ws.cell(row=last_row, column= TITLE_COL ,value=  title ) 
-    ws.cell(row=last_row, column= SPECS_COL ,value=  specs ) 
-    ws.cell(row=last_row, column= CASH_PRICE_COL ,value=  price ) 
-    ws.cell(row=last_row, column= QUERY_COL ,value=  query ) 
-    ws.cell(row=last_row, column= WP_PRICE_COL,value=  wp_price ) 
+    ws.cell(row=last_row, column= QUERY_MODEL_T2 ,value=  query_model ) 
+    ws.cell(row=last_row, column= SUPPLIER_PROD_URL_T2 ,value=  prod_url ) 
+    ws.cell(row=last_row, column= SUPPLIER_PICS_URL_T2 ,value=  edited_pics ) 
+    ws.cell(row=last_row, column= PROD_STATE_T2 ,value=  prod_state ) 
+    ws.cell(row=last_row, column= ATTR1_T2 ,value=  attr1 ) 
+    ws.cell(row=last_row, column= WP_TITLE_T2 ,value=  title ) 
+    ws.cell(row=last_row, column= SPECS_T2 ,value=  specs ) 
+    ws.cell(row=last_row, column= SUPPLIER_PRICE_T2 ,value=  price ) 
+    ws.cell(row=last_row, column= COMPLETE_QUERY_T2 ,value=  query ) 
+    ws.cell(row=last_row, column= WP_PRICE_T2,value=  wp_price ) 
     ws.cell(row=last_row, column= WP_SHORT_DESCRIPTION,value=  wp_short_description ) 
-    ws.cell(row=last_row, column= CASH_PROD_ID,value=  cash_id ) 
-    ws.cell(row=last_row, column= TARGET_CATEGORY_COL,value=  target_category) 
+    ws.cell(row=last_row, column= SUPPLIER_PROD_ID_T2,value=  cash_id ) 
+    ws.cell(row=last_row, column= CATEGORY_T2,value=  target_category) 
 
     wb.save(FILTER_T2_OUTPUT)
 
@@ -118,11 +142,14 @@ def get_specs(specs_html_string):
     specs_text = ''
     soup = bs(specs_html_string, features='lxml')
     for li in soup.find_all('li'):
-        label = li.find('span', class_="label").text
-        value = li.find('span', class_="value").text.replace('\n','')
-        
-        spec = f'{label}{value}\n'
+        # label = li.find('span', class_="label").text
+        # value = li.find('span', class_="value").text.replace('\n','')
+        # spec = f'{label}{value}\n'
+        spec = li.text.replace('\n', '')
+        spec += '\n'
         specs_text += spec
+        # print(specs_text)
+
     return specs_text
 
 def apply_profit_margin(price, target_cat):
@@ -157,10 +184,81 @@ def apply_profit_margin(price, target_cat):
     terminator_options = [0.14,0.23,0.24,0.34,0.49,0.57,0.83,0.97]
     terminator = random.choice(terminator_options)
 
+    # if 500 transform in 499
+    if str(wp_price)[-1] == '0': # if the last digit == 0:
+        wp_price -= 1
+
+    # print(f' this is wp price: {wp_price}')
     final_price_decorated = wp_price + terminator
 
     # print(f'{wp_price} - {final_price_decorated}')
     return final_price_decorated
+
+def WriteFromFilterT2ToDb():
+    from openpyxl import load_workbook
+
+    wbr = load_workbook(FILTER_T2_OUTPUT)
+    wsr = wbr.active
+    n_uploaded_prods = 1
+    total_rows       = wsr.max_row
+    for row in wsr.iter_rows(min_row=3):
+        row_n = row[0].row #get row number
+
+        query= wsr.cell(row=row_n, column=COMPLETE_QUERY_T2).value
+
+        #used to ignore blank excell cells
+        if query == None: continue
+
+        dataToInsert = (
+                #category
+                wsr.cell(row=row_n,column=CATEGORY_T2).value,
+                #complete query
+                wsr.cell(row=row_n, column=COMPLETE_QUERY_T2).value,
+                # wpTitle
+                wsr.cell(row=row_n,column=WP_TITLE_T2).value,
+                #wooID
+                n_uploaded_prods,
+                #targetProdState
+                wsr.cell(row=row_n,column=CATEGORY_T2).value,
+                #sourceState
+                wsr.cell(row=row_n,column=PROD_STATE_T2).value,
+                #attr1
+                wsr.cell(row=row_n,column=ATTR1_T2).value,
+                #attr2
+                wsr.cell(row=row_n,column=ATTR2_T2).value,
+                #supplierTotalPrice
+                wsr.cell(row=row_n,column=SUPPLIER_PRICE_T2).value,
+                #wpPrice
+                wsr.cell(row=row_n,column=WP_PRICE_T2).value,
+                #wpUrl
+                'https://someUrl',
+                #supplierProdURL
+                wsr.cell(row=row_n,column=SUPPLIER_PROD_URL_T2).value,
+                #shippingTime
+                wsr.cell(row=row_n,column=SHIPPING_TIME_T2).value,
+                #shippingPrice
+                wsr.cell(row=row_n,column=SHIPPING_PRICE_T2).value,
+                #warrany
+                wsr.cell(row=row_n,column=WARRANTY_T2).value,
+                #returns
+                wsr.cell(row=row_n,column=RETURNS_T2).value,
+                #webPics
+                wsr.cell(row=row_n,column=SUPPLIER_PICS_URL_T2).value,
+                #webPicsId
+                n_uploaded_prods,
+                #supplierProdId
+                wsr.cell(row=row_n,column=SUPPLIER_PROD_ID_T2).value,
+                #sourceSpecs
+                wsr.cell(row=row_n,column=SPECS_T2).value,
+                #targetModel
+                wsr.cell(row=row_n, column= QUERY_MODEL_T2).value,
+                #adPics
+                'ad pics names',
+                #wpShortDescription
+                wsr.cell(row=row_n, column= WP_SHORT_DESCRIPTION).value,
+                #AmazonReviewsDone
+                False,
+                )
 
 
 def run():
@@ -169,7 +267,6 @@ def run():
 
     #delete old entries to start fresh
     clean_excel(FILTER_T2_OUTPUT)
-
 
     with open(CRAWLER_OUTPUT_CASHCON, encoding='utf8') as json_file:
         scrapper_data = json.load(json_file)
@@ -199,6 +296,7 @@ def run():
                 edited_pics = edit_pic_urls(pics)
 
                 # 1.200 -> 1200
+                price = price.split(',')[0].strip()
                 price = price.replace('.','')
 
                 wp_price    = apply_profit_margin(price, target_category)
@@ -218,7 +316,7 @@ def run():
                     'prod_state':prod_state,
                     'cash_id':cash_id,
                     'target_category':target_category
-                }
+                    }
 
                 # items_list.append(data_to_dump)
                 write_to_excel(data_to_dump)
