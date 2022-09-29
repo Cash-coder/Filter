@@ -84,14 +84,18 @@ def edit_pic_urls(pics):
     return pics_string
 
 def get_prod_state(description):
-    if 'estado Usado' in description:
-        prod_state = 'El estado del artículo es usado, podría mostrar signos de uso'
-    elif 'estado Buen estado' in description:
-        prod_state = 'El artículo se encuentra en buen estado'
-    elif 'estado Perfecto estado' in description:
-        prod_state = 'El artículo se encuentra en perfecto estado'
-    elif 'estado A estrenar' in description:
-        prod_state = 'El artículo se encuentra en perfecto estado, a estrenar.'
+    description = description.lower()
+
+    if 'estado usado' in description:
+        prod_state = 'El ha sido usado con anterioridad, podría mostrar signos de uso'
+    elif 'estado buen estado' in description:
+        prod_state = 'El artículo se encuentra en Buen Estado'
+    elif 'estado perfecto estado' in description:
+        prod_state = 'El artículo se encuentra en Perfecto Estado'
+    elif 'estado excelente' in description:
+        prod_state = 'El artículo se encuentra en Estado Excelente'
+    elif 'estado a estrenar' in description:
+        prod_state = 'El artículo se encuentra a Estrenar.'
     
     return prod_state
 
@@ -299,7 +303,7 @@ def run():
                 price = price.split(',')[0].strip()
                 price = price.replace('.','')
 
-                wp_price    = apply_profit_margin(price, target_category)
+                wp_price = apply_profit_margin(price, target_category)
                 wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
 
                 data_to_dump = {
