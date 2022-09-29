@@ -1,4 +1,5 @@
 import json
+from pstats import SortKey
 import traceback
 
 #settings
@@ -264,6 +265,48 @@ def WriteFromFilterT2ToDb():
                 False,
                 )
 
+#return the 3 lowest prices for each product
+def getLowerPricesItems(scrapperData):
+    
+    bestPrices = []
+    nMaxItems = 2
+
+    #multivariable sort, title and price 
+    sortedList = sorted(scrapperData, key=lambda x: (x['title'], x['price']))
+
+    #used to differentiate items in list
+    currentTitle = sortedList[0]['title'] 
+    flag = 0
+    for item in sortedList:
+        title = item.get('title')
+        #used to print and debug
+        # price = item.get('price')
+        # price = item.get('price').replace(' €', '').replace('.', '').replace(',', '.')
+        # price = float(price)
+
+        #the list is sorted by price and title
+        #if title is same and flag below max:
+            #append, flag +1    
+        #if title is same and flag 3 or more
+            #continue
+            #this way you only append nMax items
+        #if title is new:
+            #flag to 0
+            #update title
+
+        if title == currentTitle and flag <= nMaxItems:
+            bestPrices.append(item)
+            flag += 1
+        elif title == currentTitle and flag > nMaxItems:
+            continue
+        elif title != currentTitle:
+            flag = 0
+            currentTitle = title
+            # bestPrices.append(item)
+
+    [print(item['title'], item['price']) for item in bestPrices]
+    return bestPrices
+
 
 def run():
     
@@ -275,60 +318,62 @@ def run():
     with open(CRAWLER_OUTPUT_CASHCON, encoding='utf8') as json_file:
         scrapper_data = json.load(json_file)
 
-        for i, item in enumerate(scrapper_data):        
+        getLowerPricesItems(scrapper_data)
 
-            try:
+        # for i, item in enumerate(scrapper_data):        
 
-                #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
-                target_category = item[TARGET_CATEG]
-                description     = item[DESCRIPTION]
-                query_model     = item[QUERY_MODEL]
-                prod_url    = item[PROD_URL]
-                cash_id     = item[CASH_ID]
-                attr1   = item[ATTR1]
-                title   = item[TITLE]
-                specs   = item[SPECS]
-                price   = item[PRICE]
-                pics    = item[PICS]
-                query   = item[QUERY]
+        #     try:
 
-                prod_state  = get_prod_state(description)
-                specs_text  = get_specs(specs)  
-                # combine state and specs
-                specs_text = f'{prod_state}\n\n{specs_text}'
+        #         #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
+        #         target_category = item[TARGET_CATEG]
+        #         description     = item[DESCRIPTION]
+        #         query_model     = item[QUERY_MODEL]
+        #         prod_url    = item[PROD_URL]
+        #         cash_id     = item[CASH_ID]
+        #         attr1   = item[ATTR1]
+        #         title   = item[TITLE]
+        #         specs   = item[SPECS]
+        #         price   = item[PRICE]
+        #         pics    = item[PICS]
+        #         query   = item[QUERY]
 
-                edited_pics = edit_pic_urls(pics)
+        #         prod_state  = get_prod_state(description)
+        #         specs_text  = get_specs(specs)  
+        #         # combine state and specs
+        #         specs_text = f'{prod_state}\n\n{specs_text}'
 
-                # 1.200 -> 1200
-                price = price.split(',')[0].strip()
-                price = price.replace('.','')
+        #         edited_pics = edit_pic_urls(pics)
 
-                wp_price = apply_profit_margin(price, target_category)
-                wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
+        #         # 1.200 -> 1200
+        #         price = price.split(',')[0].strip()
+        #         price = price.replace('.','')
 
-                data_to_dump = {
-                    'query_model':query_model,
-                    'wp_short_description':wp_short_description,
-                    'prod_url':prod_url,
-                    'wp_price':wp_price,
-                    'attr1':attr1,
-                    'title':title,
-                    'specs':specs_text,
-                    'price':price,
-                    'query':query,
-                    'edited_pics':edited_pics,
-                    'prod_state':prod_state,
-                    'cash_id':cash_id,
-                    'target_category':target_category
-                    }
+        #         wp_price = apply_profit_margin(price, target_category)
+        #         wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
 
-                # items_list.append(data_to_dump)
-                write_to_excel(data_to_dump)
-                print(f'processed {i+1}')
+        #         data_to_dump = {
+        #             'query_model':query_model,
+        #             'wp_short_description':wp_short_description,
+        #             'prod_url':prod_url,
+        #             'wp_price':wp_price,
+        #             'attr1':attr1,
+        #             'title':title,
+        #             'specs':specs_text,
+        #             'price':price,
+        #             'query':query,
+        #             'edited_pics':edited_pics,
+        #             'prod_state':prod_state,
+        #             'cash_id':cash_id,
+        #             'target_category':target_category
+        #             }
 
-            except Exception as e:
-                print(e)
-                traceback.print_exc()
+        #         # items_list.append(data_to_dump)
+        #         write_to_excel(data_to_dump)
+        #         print(f'processed {i+1}')
+
+        #     except Exception as e:
+        #         print(e)
+        #         traceback.print_exc()
 
 
 if __name__ == '__main__':
