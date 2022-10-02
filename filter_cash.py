@@ -79,7 +79,7 @@ def edit_pic_urls(pics):
     
     pics_string = ''
 
-    for pic in pics[::max_pics]:
+    for pic in pics[:max_pics]:
         pics_string += pic + ','
     
     return pics_string
@@ -87,10 +87,12 @@ def edit_pic_urls(pics):
 def get_prod_state(description):
     description = description.lower()
 
-    if 'estado usado' in description:
-        prod_state = 'El ha sido usado con anterioridad, podría mostrar signos de uso'
+    if 'se ofrece en estado bueno' in description:
+        prod_state = 'El ha sido usado con anterioridad, podría mostrar signos de uso.\nEl artículo está en buen estado.'
     elif 'estado buen estado' in description:
-        prod_state = 'El artículo se encuentra en Buen Estado'
+        prod_state = 'El artículo se encuentra en buen estado'
+    elif 'estado muy bueno' in description:
+        prod_state = 'El artículo se encuentra en Muy Buen Estado'
     elif 'estado perfecto estado' in description:
         prod_state = 'El artículo se encuentra en Perfecto Estado'
     elif 'estado excelente' in description:
@@ -98,7 +100,14 @@ def get_prod_state(description):
     elif 'estado a estrenar' in description:
         prod_state = 'El artículo se encuentra a Estrenar.'
     
-    return prod_state
+    #sometimes the text changes in the site and doesn't match this text
+    #this prints the unmatching text to update
+    try:
+        return prod_state
+
+    except UnboundLocalError as e:
+        print(f'this is the description: {description}')
+        print(e,'\n------------------------')
 
 def write_to_excel(data_to_dump):
     from openpyxl import  load_workbook
@@ -267,9 +276,9 @@ def WriteFromFilterT2ToDb():
 
 #return the 3 lowest prices for each product
 def getLowerPricesItems(scrapperData):
-    
+   
     bestPrices = []
-    nMaxItems = 2
+    nMaxItems = 1 # gets 2 items
 
     #multivariable sort, title and price 
     sortedList = sorted(scrapperData, key=lambda x: (x['title'], x['price']))
@@ -283,6 +292,7 @@ def getLowerPricesItems(scrapperData):
         # price = item.get('price')
         # price = item.get('price').replace(' €', '').replace('.', '').replace(',', '.')
         # price = float(price)
+
 
         #the list is sorted by price and title
         #if title is same and flag below max:
@@ -302,9 +312,8 @@ def getLowerPricesItems(scrapperData):
         elif title != currentTitle:
             flag = 0
             currentTitle = title
-            # bestPrices.append(item)
 
-    [print(item['title'], item['price']) for item in bestPrices]
+    # [print(item['title'], item['price']) for item in bestPrices]
     return bestPrices
 
 
@@ -318,62 +327,65 @@ def run():
     with open(CRAWLER_OUTPUT_CASHCON, encoding='utf8') as json_file:
         scrapper_data = json.load(json_file)
 
-        getLowerPricesItems(scrapper_data)
+        lowestPrices = getLowerPricesItems(scrapper_data)
 
-        # for i, item in enumerate(scrapper_data):        
+        for i, item in enumerate(lowestPrices):        
 
-        #     try:
+            try:
 
-        #         #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
-        #         target_category = item[TARGET_CATEG]
-        #         description     = item[DESCRIPTION]
-        #         query_model     = item[QUERY_MODEL]
-        #         prod_url    = item[PROD_URL]
-        #         cash_id     = item[CASH_ID]
-        #         attr1   = item[ATTR1]
-        #         title   = item[TITLE]
-        #         specs   = item[SPECS]
-        #         price   = item[PRICE]
-        #         pics    = item[PICS]
-        #         query   = item[QUERY]
+                #before filtering by price, filter defective products with very cheap price that skews prices with very low prices from defective prods
+                target_category = item[TARGET_CATEG]
+                description     = item[DESCRIPTION]
+                query_model     = item[QUERY_MODEL]
+                prod_url    = item[PROD_URL]
+                cash_id     = item[CASH_ID]
+                attr1   = item[ATTR1]
+                title   = item[TITLE]
+                specs   = item[SPECS]
+                price   = item[PRICE]
+                pics    = item[PICS]
+                query   = item[QUERY]
 
-        #         prod_state  = get_prod_state(description)
-        #         specs_text  = get_specs(specs)  
-        #         # combine state and specs
-        #         specs_text = f'{prod_state}\n\n{specs_text}'
+                prod_state  = get_prod_state(description)
+                specs_text  = get_specs(specs)  
+                # combine state and specs
+                specs_text = f'{prod_state}\n\n{specs_text}'
 
-        #         edited_pics = edit_pic_urls(pics)
+                edited_pics = edit_pic_urls(pics)
 
-        #         # 1.200 -> 1200
-        #         price = price.split(',')[0].strip()
-        #         price = price.replace('.','')
+                # 1.200 -> 1200
+                price = price.split(',')[0].strip()
+                price = price.replace('.','')
 
-        #         wp_price = apply_profit_margin(price, target_category)
-        #         wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
+                wp_price = apply_profit_margin(price, target_category)
+                wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
 
-        #         data_to_dump = {
-        #             'query_model':query_model,
-        #             'wp_short_description':wp_short_description,
-        #             'prod_url':prod_url,
-        #             'wp_price':wp_price,
-        #             'attr1':attr1,
-        #             'title':title,
-        #             'specs':specs_text,
-        #             'price':price,
-        #             'query':query,
-        #             'edited_pics':edited_pics,
-        #             'prod_state':prod_state,
-        #             'cash_id':cash_id,
-        #             'target_category':target_category
-        #             }
+                data_to_dump = {
+                    'query_model':query_model,
+                    'wp_short_description':wp_short_description,
+                    'prod_url':prod_url,
+                    'wp_price':wp_price,
+                    'attr1':attr1,
+                    'title':title,
+                    'specs':specs_text,
+                    'price':price,
+                    'query':query,
+                    'edited_pics':edited_pics,
+                    'prod_state':prod_state,
+                    'cash_id':cash_id,
+                    'target_category':target_category
+                    }
 
-        #         # items_list.append(data_to_dump)
-        #         write_to_excel(data_to_dump)
-        #         print(f'processed {i+1}')
-
-        #     except Exception as e:
-        #         print(e)
-        #         traceback.print_exc()
+                # items_list.append(data_to_dump)
+                write_to_excel(data_to_dump)
+                print(f'processed {i+1}')
+        
+            except Exception as e:
+                print(e)
+                traceback.print_exc()
+        
+        #print results
+        [print(prod.get('title'), prod.get('price')) for prod in lowestPrices]
 
 
 if __name__ == '__main__':
