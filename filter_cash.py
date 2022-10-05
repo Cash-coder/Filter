@@ -159,7 +159,7 @@ def get_specs(specs_html_string):
         # label = li.find('span', class_="label").text
         # value = li.find('span', class_="value").text.replace('\n','')
         # spec = f'{label}{value}\n'
-        spec = li.text.replace('\n', '')
+        spec = li.text.replace('\n', '').replace(':', ': ')
         spec += '\n'
         specs_text += spec
         # print(specs_text)
