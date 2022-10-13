@@ -3,7 +3,9 @@ from pstats import SortKey
 import traceback
 
 #settings
-max_pics = 3
+max_pics  = 3
+nMaxItems = 1 # n results 
+
 
 # files
 CRAWLER_OUTPUT_CASHCON = r'C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\cash_crawler_output.json'
@@ -88,7 +90,7 @@ def get_prod_state(description):
     description = description.lower()
 
     if 'se ofrece en estado bueno' in description:
-        prod_state = 'El ha sido usado con anterioridad, podría mostrar signos de uso.\nEl artículo está en buen estado.'
+        prod_state = 'El artículo ha sido usado con anterioridad, podría mostrar signos de uso.\nEl artículo está en buen estado.'
     elif 'estado buen estado' in description:
         prod_state = 'El artículo se encuentra en buen estado'
     elif 'estado muy bueno' in description:
@@ -176,7 +178,7 @@ def apply_profit_margin(price, target_cat):
         wp_price = price + profit
     
     else: 
-        profit = 12
+        profit = 18
         wp_price = price + profit
     
     # declare taxes and fees
@@ -276,18 +278,18 @@ def WriteFromFilterT2ToDb():
 
 #return the 3 lowest prices for each product
 def getLowerPricesItems(scrapperData):
-   
+    global nMaxItems
+
     bestPrices = []
-    nMaxItems = 1 # gets 2 items
 
     #multivariable sort, title and price 
-    sortedList = sorted(scrapperData, key=lambda x: (x['title'], x['price']))
+    sortedList = sorted(scrapperData, key=lambda x: (x['query'], x['price']))
 
     #used to differentiate items in list
-    currentTitle = sortedList[0]['title'] 
+    currentTitle = sortedList[0]['query'] 
     flag = 0
     for item in sortedList:
-        title = item.get('title')
+        title = item.get('query')
         #used to print and debug
         # price = item.get('price')
         # price = item.get('price').replace(' €', '').replace('.', '').replace(',', '.')
@@ -358,7 +360,7 @@ def run():
                 price = price.replace('.','')
 
                 wp_price = apply_profit_margin(price, target_category)
-                wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 72 horas.'
+                wp_short_description = 'Este artículo disfruta de una garantía de 2 años completos.\nPuedes probarlo durante 30 días.\nEnvío rápido 24h.\nDisponible pago aplazado en 3 plazos.'
 
                 data_to_dump = {
                     'query_model':query_model,
