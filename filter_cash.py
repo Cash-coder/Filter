@@ -123,13 +123,13 @@ def write_to_excel(data_to_dump):
     prod_url    = data_to_dump.get('prod_url') 
     edited_pics = data_to_dump.get('edited_pics') 
     prod_state  = data_to_dump.get('prod_state') 
-    cash_id = data_to_dump.get('cash_id') 
+    wp_price = data_to_dump.get('wp_price') 
+    cash_id  = data_to_dump.get('cash_id') 
     attr1 = data_to_dump.get('attr1') 
     title = data_to_dump.get('title') 
     specs = data_to_dump.get('specs') 
     price = data_to_dump.get('price') 
     query = data_to_dump.get('query') 
-    wp_price = data_to_dump.get('wp_price') 
     
     last_row = ws.max_row + 1
 
@@ -178,12 +178,12 @@ def apply_profit_margin(price, target_cat):
         wp_price = price + profit
     
     else: 
-        profit = 18
+        profit = 35
         wp_price = price + profit
     
     # declare taxes and fees
-    taxes = profit * 0.21 #21%
-    stripe_fee_rate  = 0.014 # 1.4%
+    taxes = profit*0.21 #21%
+    stripe_fee_rate = 0.014 # 1.4%
 
     # taxes
     wp_price += taxes
@@ -195,14 +195,14 @@ def apply_profit_margin(price, target_cat):
     wp_price += stripe_fee
 
     wp_price = int(wp_price)
+    
+    # if 500 transform in 499
+    if str(wp_price)[-1] == '0': # if the last digit == 0:
+        wp_price -= 1
 
     # add attractive termination to the price: 55 -> 54,45
     terminator_options = [0.14,0.23,0.24,0.34,0.49,0.57,0.83,0.97]
     terminator = random.choice(terminator_options)
-
-    # if 500 transform in 499
-    if str(wp_price)[-1] == '0': # if the last digit == 0:
-        wp_price -= 1
 
     # print(f' this is wp price: {wp_price}')
     final_price_decorated = wp_price + terminator
